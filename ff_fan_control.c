@@ -59,9 +59,10 @@ float roc_rk3588s_pc_average_temperature()
 		// we don't know the temperature, either through a misconfigured kernel or handware issues
 		// throw an error! don't just return 50, this risks frying your board
 	}
-	char buf[0x3e8];
+	char buf[1000];
+	// this read will never return more than 32 chars
 	while (1) {
-		if (!fgets(buf, 0x3e8, temp_file)) {
+		if (!fgets(buf, 1000, temp_file)) {
 			if (h14 < 1) {
 				// something
 			}
@@ -80,9 +81,10 @@ void* roc_rk3588s_pc_fan_thread_daemon(void * arg)
 	int x = 0;
 	while (1) {
 		while (x != 4) {
-			usleep(0x7a120);
+			usleep(50000);
 			x++;
-			// why didn't you just usleep 5 times longer?
+			// maybe I missed something here
+			// but why don't you sleep for 250000 ms once
 		}
 		x = 0;
 		const float temp = roc_rk3588s_pc_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
@@ -206,7 +208,8 @@ int main(int argc, char **argv)
 	fan_init(s3c);
 	pthread_t t1, t2, t3, t4, t5, t6;
 	if (argc > 2) {
-		// this is not how professional argument parsing looks like
+		// this is not proper argument parsing but how a 12 year old does C arguments
+		// either use a loop or even better getopts
 		if (strcmp("--debug", argv[2])) {
 			const int pwm = atoi(argv[2]);
 			// and w0, w0, 0xff
