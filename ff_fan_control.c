@@ -33,16 +33,15 @@ void PID_init(int s3c, float * x0)
 	switch (s3c) {
 	case 0: case 1: case 2: case 3: case 4:
 		x0[0] = 2.0f;
-		x0[1] = 1.0f;
-		// load f2         - x0 - 0
-		// load f1         - x0 - 8
-		// load 0x3c449ba6 - x0 - 4
-		// load 0x186a0    - x0 - 0x20
-		// load 0x42400000 - x0 - 0xc
-		// load 0x0        - x0 - 0x10
-		// load 0x0        - x0 - 0x14
-		// load 0x0        - x0 - 0x18
-		// load 0x0        - x0 - 0x1c
+		x0[1] = 0.12f; // 0x3c449ba6 in IEEE-754
+		x0[2] = 1.0f;
+		x0[3] = 48.0f; // 0x42400000 in IEEE-754
+		x0[4] = 0.0f;
+		x0[5] = 0.0f;
+		x0[6] = 0.0f;
+		x0[7] = 0.0f;
+		x0[8] = 0.0f;
+		x0[9] = 1.4f; //  0x000186a0 in IEEE-754
 	}
 }
 void fan_init(int s3c)
@@ -135,7 +134,7 @@ int main(int argc, char **argv)
 		//puts("board ITX-3588J");
 		//s3c = 3;
 	}
-	float x0[9];
+	float x0[10];
 	PID_init(s3c, x0);
 	fan_init(s3c);
 	if (argc > 2) {
