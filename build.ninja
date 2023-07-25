@@ -1,7 +1,8 @@
-CFLAGS = -Oz -Wno-unused-result
+cc = gcc
+cflags = -O0 -Wno-unused-result
 
 rule cc
- command = gcc -o $out $in $CFLAGS
+ command = $cc -o $out $in $cflags
  description = compiling $out
 
 build ff_fan_control: cc ff_fan_control.c

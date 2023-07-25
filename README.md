@@ -8,7 +8,7 @@ This includes all bugs and horrible programming practice, which I ofc commented 
 
 \* The binaries can be found in glibc based distrubtions and a sketchy download on yandex. \*
 
-The binary was not stripped and compiled with -O0 on gcc9 against glibc 2.17.
+About the binary: it was not stripped and compiled with -O0 on gcc-9.4.0-1.against glibc-2.17, on a Ubuntu-20.04.1 machine.
 
 This gives me the ability to determine nearly the exact way it was written, making it a nice exercise, while also not too tedious.
 

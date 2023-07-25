@@ -26,7 +26,7 @@ int get_ROC_RK3588S_PC_version()
 void fan_ROC_RK3588S_PC_init()
 {
 	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", 0);
-	// if you don't want to do this with a open() and write()
+	// if you don't want to do this with open() and write()
 	// which like previously mentioned, would have been the proper way
 	// you should use system()
 	// popen() just leaked a fd
@@ -250,7 +250,6 @@ int main(int argc, char **argv)
 				//break;
 			}
 			while (1) sleep(1);
-			return 0;
 		}
 	}
 	switch (s3c) {
