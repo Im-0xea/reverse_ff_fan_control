@@ -28,6 +28,59 @@ void fan_ROC_RK3588S_PC_init()
 	// have you heard of write()?
 	// note: closing FILE * is a good thing to do...
 }
+void set_ROC_RK3588S_PC_fan_pwm(int pwm)
+{
+	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
+	printf("set_PWM: %d. pwm: %d.", 0, pwm);
+	const int fd = open(pwm_p, O_WRONLY);
+	if (fd < 1) {
+		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file.", pwm_p);
+		// at this point returning might be smart.....
+	}
+	char buf[0x18];
+	sprintf(buf, "%d", pwm);
+	write(fd, buf, strlen(buf));
+	close(fd);
+}
+float roc_rk3588s_pc_average_temperature()
+{
+	int h14 = 0;
+	float h18 = 0;
+	FILE * temp_file = popen("cat /sys/class/thermal/thermal_zone*/temp", 0);
+	if (temp_file == 0) {
+		puts("no such file /sys/class/thermal/thermal_zone*/temp");
+		return 50.0f; // 0x4248000 in IEEE-754
+	}
+	char buf[0x3e8];
+	while (1) {
+		if (!fgets(buf, 0x3e8, temp_file)) {
+			if (h14 < 1) {
+				// something
+			}
+			printf("sum = %f.", h18);
+			fclose(temp_file);
+			return h18; // maybe
+		}
+		const int temp_l = strlen(buf);
+		h18 = atof(buf); // some ops might still be here
+		printf("%f.", h18);
+		// something more here
+	}
+}
+void roc_rk3588s_pc_fan_thread_daemon(void * arg)
+{
+	int x = 0;
+	while (1) {
+		// why again are we looping 4 times instead of just waiting 4 times as long?
+		while (x != 4) {
+			usleep(0x7a120);
+			x++;
+		}
+		x = 0;
+		const float temp = roc_rk3588s_pc_average_temperature() * 1000; // 0x447a0000 in IEEE-754
+		// shouldn't you now be setting the pwm now?
+	}
+}
 void PID_init(int s3c, float * x0)
 {
 	switch (s3c) {
@@ -65,20 +118,6 @@ void fan_init(int s3c)
 	}
 	sleep(2);
 	return;
-}
-void set_ROC_RK3588S_PC_fan_pwm(int pwm)
-{
-	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
-	printf("set_PWM: %d. pwm: %d.", 0, pwm);
-	const int fd = open(pwm_p, O_WRONLY);
-	if (fd < 1) {
-		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file.", pwm_p);
-		// at this point returning might be smart.....
-	}
-	char buf[0x18];
-	sprintf(buf, "%d", pwm);
-	write(fd, buf, strlen(buf));
-	close(fd);
 }
 void set_fan_pwm(int s3c, int pwm)
 {
@@ -150,39 +189,39 @@ int main(int argc, char **argv)
 				pthread_t t1, t2, t3, t4, t5, t6;
 				switch (s3c) {
 				case 0:
-					if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
-						puts("thread3 create error");
-						return -1;
-					}
+					//if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+					//	puts("thread3 create error");
+					//	return -1;
+					//}
 					break;
 				case 1:
-					if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
-						puts("thread1 create error");
-						return -1;
-					}
-					if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
-						puts("thread2 create error");
-						return -1;
-					}
+					//if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
+					//	puts("thread1 create error");
+					//	return -1;
+					//}
+					//if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
+					//	puts("thread2 create error");
+					//	return -1;
+					//}
 					break;
 				case 2:
-					if (pthread_create(&t4, NULL, rok_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
+					if (pthread_create(&t4, NULL, roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
 						puts("thread4 create error");
 						return -1;
 					}
 					break;
 				case 3:
-					if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
-						puts("thread5 create error");
-						return -1;
-					}
-					break;
+					//if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
+					//	puts("thread5 create error");
+					//	return -1;
+					//}
+					//break;
 				case 4:
-					if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
-						puts("thread4 create error");
-						return -1;
-					}
-					break;
+					//if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
+					//	puts("thread4 create error");
+					//	return -1;
+					//}
+					//break;
 				}
 				while (1) sleep(1);
 			}
