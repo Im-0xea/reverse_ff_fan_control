@@ -197,56 +197,94 @@ int main(int argc, char **argv)
 	float x0[10];
 	PID_init(s3c, x0);
 	fan_init(s3c);
+	pthread_t t1, t2, t3, t4, t5, t6;
 	if (argc > 2) {
 		// this is not how professional argument parsing looks like
-		if (!strcmp("--debug", argv[2])) {
-			
-		} else {
+		if (strcmp("--debug", argv[2])) {
 			const int pwm = atoi(argv[2]);
 			// and w0, w0, 0xff
 			set_fan_pwm(s3c, pwm);
-			if (s3c) {
-				// those threadN create error messages don't make any sense
-				// also you could have used 1 or 2 pthreads, you have 6 of which at max 2 are used
-				pthread_t t1, t2, t3, t4, t5, t6;
-				switch (s3c) {
-				case 0:
-					//if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
-					//	puts("thread3 create error");
-					//	return -1;
-					//}
-					break;
-				case 1:
-					//if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
-					//	puts("thread1 create error");
-					//	return -1;
-					//}
-					//if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
-					//	puts("thread2 create error");
-					//	return -1;
-					//}
-					break;
-				case 2:
-					if (pthread_create(&t4, NULL, roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
-						puts("thread4 create error");
-						return -1;
-					}
-					break;
-				case 3:
-					//if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
-					//	puts("thread5 create error");
-					//	return -1;
-					//}
-					//break;
-				case 4:
-					//if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
-					//	puts("thread4 create error");
-					//	return -1;
-					//}
-					//break;
+			// those threadN create error messages don't make any sense
+			// also you could have used 1 or 2 pthreads, you have 6 of which at max 2 are used
+			switch (s3c) {
+			case 0:
+				//if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+				//	puts("thread3 create error");
+				//	return -1;
+				//}
+				break;
+			case 1:
+				//if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
+				//	puts("thread1 create error");
+				//	return -1;
+				//}
+				//if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
+				//	puts("thread2 create error");
+				//	return -1;
+				//}
+				break;
+			case 2:
+				if (pthread_create(&t4, NULL, roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
+					puts("thread4 create error");
+					return -1;
 				}
-				while (1) sleep(1);
+				break;
+			case 3:
+				//if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
+				//	puts("thread5 create error");
+				//	return -1;
+				//}
+				//break;
+			case 4:
+				//if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
+				//	puts("thread4 create error");
+				//	return -1;
+				//}
+				//break;
 			}
+			while (1) sleep(1);
+			return 0;
 		}
 	}
+	switch (s3c) {
+	case 0:
+		//if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+		//	puts("thread3 create error");
+		//	return -1;
+		//}
+		break;
+	case 1:
+		//if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
+		//	puts("thread1 create error");
+		//	return -1;
+		//}
+		//if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
+		//	puts("thread2 create error");
+		//	return -1;
+		//}
+		break;
+	case 2:
+		if (pthread_create(&t4, NULL, roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
+			puts("thread4 create error");
+			return -1;
+		}
+		break;
+	case 3:
+		//if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
+		//	puts("thread5 create error");
+		//	return -1;
+		//}
+		//break;
+	case 4:
+		//if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
+		//	puts("thread4 create error");
+		//	return -1;
+		//}
+		//break;
+	}
+	set_fan_pwm(s3c, 0);
+	//init_sigaction()
+	//init_time()
+	printf("pwm: %d.", 0);
+	// I guess here the actual fan control part is happening
 }

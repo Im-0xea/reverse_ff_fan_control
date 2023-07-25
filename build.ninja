@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -Oz
+CFLAGS = -Oz -Wno-unused-result
 
 rule cc
  command = gcc -o $out $in $CFLAGS
