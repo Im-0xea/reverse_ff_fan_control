@@ -9,7 +9,6 @@ int get_ROC_RK3588S_PC_version()
 {
 	FILE * iv = popen("cat /sys/bus/iio/devices/iio:device0/in_voltage5_raw", 0);
 	// the proper C way would be using open() and read()
-	// seams like you are recreating a shell script in C
 	if (!iv) {
 		puts("can not open /sys/bus/iio:device0/in_voltage5_raw");
 		fclose(iv);
@@ -27,17 +26,16 @@ void fan_ROC_RK3588S_PC_init()
 {
 	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", 0);
 	// if you don't want to do this with open() and write()
-	// which like previously mentioned, would have been the proper way
 	// you should use system()
 	// popen() just leaked a fd
 }
 void set_ROC_RK3588S_PC_fan_pwm(int pwm)
 {
 	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
-	printf("set_PWM: %d. pwm: %d.", 0, pwm);
+	printf("set_PWM: %d\npwm: %d\n", 0, pwm);
 	const int fd = open(pwm_p, O_WRONLY);
 	if (fd < 1) {
-		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file.", pwm_p);
+		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", pwm_p);
 		// at this point you should be returning
 		// instead you are writting and closing a invalid fd
 	}
@@ -56,8 +54,8 @@ float roc_rk3588s_pc_average_temperature()
 	if (temp_file == 0) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
-		// we don't know the temperature, either through a misconfigured kernel or handware issues
-		// throw an error! don't just return 50, this risks frying your board
+		// we don't have a read, either through a misconfigured kernel or handware issues
+		// just returning 50 risks frying your board and leaves the issue undiscovered
 	}
 	char buf[1000];
 	// this read will never return more than 32 chars
@@ -66,13 +64,13 @@ float roc_rk3588s_pc_average_temperature()
 			if (h14 < 1) {
 				// something
 			}
-			printf("sum = %f.", h18);
+			printf("sum = %f\n", h18);
 			fclose(temp_file);
 			return h18; // maybe
 		}
 		const int temp_l = strlen(buf);
 		h18 = atof(buf); // some ops might still be here
-		printf("%f.", h18);
+		printf("%f\n", h18);
 		// something more here
 	}
 }
@@ -83,13 +81,12 @@ void* roc_rk3588s_pc_fan_thread_daemon(void * arg)
 		while (x != 4) {
 			usleep(50000);
 			x++;
-			// maybe I missed something here
-			// but why don't you sleep for 250000 ms once
+			// seams more practical to sleep 250000 ms once
+			// although I might have missed something here
 		}
 		x = 0;
 		const float temp = roc_rk3588s_pc_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
-		// shouldn't you be setting the pwm now?
-		// does this daemon even do anything besides outputing the temperature?
+		// potencially write to some thread shared pointer
 	}
 }
 void PID_init(int s3c, float x0[])
@@ -119,8 +116,9 @@ void PID_init(int s3c, float x0[])
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
 		break;
 	}
-	// these happen to all be the same...
-	// also why did you functionise the initilization of a float array?
+	// these happen to all be the same
+	// also making a function out of the initilization of a float array
+	// seams a bit off
 }
 void fan_init(int s3c)
 {
@@ -171,10 +169,9 @@ int main(int argc, char **argv)
 		puts("./main CS-R2-3399JD4-MAIN --debug");
 		puts("./main ROC-RK3588S-PC 50");
 		puts("./main ITX_3588J 50");
-		puts("./main ROC-RK3588-PC 50 ");
+		puts("./main ROC-RK3588-PC 50");
 		// I know this might be more readable
 		// but you are calling puts 5 times for what could be one write to stdout
-		// consider learning \n
 		return 0;
 	}
 	
@@ -201,21 +198,24 @@ int main(int argc, char **argv)
 		//puts("board ITX-3588J");
 		//s3c = 3;
 	}
-	// if you didn't change the MODEL format for no reason
-	// you could have just made the model a string you could have done most of this in one place
+	// if you didn't change the model formats
+	// you could have just made the models to strings
+	// and you could have done most of this in one place
 	float x0[10];
 	PID_init(s3c, x0);
 	fan_init(s3c);
 	pthread_t t1, t2, t3, t4, t5, t6;
 	if (argc > 2) {
-		// this is not proper argument parsing but how a 12 year old does C arguments
-		// either use a loop or even better getopts
+		// this is not proper argument parsing
+		// it is better to either use a plain loop or getopts
 		if (strcmp("--debug", argv[2])) {
 			const int pwm = atoi(argv[2]);
 			// and w0, w0, 0xff
 			set_fan_pwm(s3c, pwm);
-			// those threadN create error messages don't make any sense
-			// also you could have used 1 or 2 pthreads, you have 6 of which at max 2 are used
+			// those "threadN create error" messages don't make any sense
+			// and don't give any indication were the issue is
+			// also you could have used 1 or 2 pthreads
+			// you have 6 of which at max 2 are used
 			switch (s3c) {
 			case 0:
 				//if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
@@ -294,6 +294,6 @@ int main(int argc, char **argv)
 	set_fan_pwm(s3c, 0);
 	//init_sigaction()
 	//init_time()
-	printf("pwm: %d.", 0);
+	printf("pwm: %d\n", 0);
 	// I guess here the actual fan control part is happening
 }
