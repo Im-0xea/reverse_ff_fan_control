@@ -1,0 +1,7 @@
+CFLAGS = -Wall -Wextra -Oz
+
+rule cc
+ command = gcc -o $out $in $CFLAGS
+ description = compiling $out
+
+build ff_fan_control: cc ff_fan_control.c
