@@ -9,6 +9,7 @@ int get_ROC_RK3588S_PC_version()
 {
 	FILE * iv = popen("cat /sys/bus/iio/devices/iio:device0/in_voltage5_raw", 0);
 	// the proper C way would be using open() and read()
+	// seams like you are recreating a shell script in C
 	if (!iv) {
 		puts("can not open /sys/bus/iio:device0/in_voltage5_raw");
 		fclose(iv);
@@ -25,10 +26,10 @@ int get_ROC_RK3588S_PC_version()
 void fan_ROC_RK3588S_PC_init()
 {
 	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", 0);
-	// if you don't want to do this with a fd and write()
-	// which would have been the proper way
+	// if you don't want to do this with a open() and write()
+	// which like previously mentioned, would have been the proper way
 	// you should use system()
-	// popen just leaked a fd
+	// popen() just leaked a fd
 }
 void set_ROC_RK3588S_PC_fan_pwm(int pwm)
 {
@@ -38,12 +39,12 @@ void set_ROC_RK3588S_PC_fan_pwm(int pwm)
 	if (fd < 1) {
 		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file.", pwm_p);
 		// at this point you should be returning
-		// you are writting and closing a invalid fd
+		// instead you are writting and closing a invalid fd
 	}
 	char buf[0x18];
 	sprintf(buf, "%d", pwm);
 	write(fd, buf, strlen(buf));
-	// good practice would demand another fail check here
+	// good practice(and compiler warnings) would demand another fail check here
 	// especially because this is a write which is likely to fail
 	close(fd);
 }
@@ -55,8 +56,8 @@ float roc_rk3588s_pc_average_temperature()
 	if (temp_file == 0) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
-		// we don't know the temperature
-		// handle the error!, don't just return 50 degrees
+		// we don't know the temperature, either through a misconfigured kernel or handware issues
+		// throw an error! don't just return 50, this risks frying your board
 	}
 	char buf[0x3e8];
 	while (1) {
@@ -91,28 +92,33 @@ void* roc_rk3588s_pc_fan_thread_daemon(void * arg)
 }
 void PID_init(int s3c, float x0[])
 {
+	// 0x3c449ba6 in IEEE-754 0.12f
+	// 0x42400000 in IEEE-754 48.0f
+	// 0x000186a0 in IEEE-754 1.4f
 	switch (s3c) {
 	case 0:
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
+		break;
 	case 1:
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
+		break;
 	case 2:
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
+		break;
 	case 3:
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
+		break;
 	case 4:
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
+		break;
 	}
 	// these happen to all be the same...
 	// also why did you functionise the initilization of a float array?
-	// 0x3c449ba6 in IEEE-754 0.12f
-	// 0x42400000 in IEEE-754 48.0f
-	// 0x000186a0 in IEEE-754 1.4f
 }
 void fan_init(int s3c)
 {
@@ -164,8 +170,9 @@ int main(int argc, char **argv)
 		puts("./main ROC-RK3588S-PC 50");
 		puts("./main ITX_3588J 50");
 		puts("./main ROC-RK3588-PC 50 ");
-		// I know this is more readable
-		// but you are calling puts 5 times
+		// I know this might be more readable
+		// but you are calling puts 5 times for what could be one write to stdout
+		// consider learning \n
 		return 0;
 	}
 	
@@ -193,7 +200,7 @@ int main(int argc, char **argv)
 		//s3c = 3;
 	}
 	// if you didn't change the MODEL format for no reason
-	// you could have just made the model a string and saved yourselfs all of this
+	// you could have just made the model a string you could have done most of this in one place
 	float x0[10];
 	PID_init(s3c, x0);
 	fan_init(s3c);
