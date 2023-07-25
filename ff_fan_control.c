@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include <unistd.h>
 
 int get_ROC_RK3588S_PC_version()
@@ -144,6 +145,48 @@ int main(int argc, char **argv)
 			const int pwm = atoi(argv[2]);
 			// and w0, w0, 0xff
 			set_fan_pwm(s3c, pwm);
+			if (s3c) {
+				// this seams fine.... don't mind the weird thread numbers
+				// I didn't fake this
+				pthread_t t1, t2, t3, t4, t5, t6;
+				switch (s3c) {
+				case 0:
+					if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+						puts("thread3 create error");
+						return -1;
+					}
+					break;
+				case 1:
+					if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
+						puts("thread1 create error");
+						return -1;
+					}
+					if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
+						puts("thread2 create error");
+						return -1;
+					}
+					break;
+				case 2:
+					if (pthread_create(&t4, NULL, rok_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
+						puts("thread4 create error");
+						return -1;
+					}
+					break;
+				case 3:
+					if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
+						puts("thread5 create error");
+						return -1;
+					}
+					break;
+				case 4:
+					if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
+						puts("thread4 create error");
+						return -1;
+					}
+					break;
+				}
+				while (1) sleep(1);
+			}
 		}
 	}
 }
