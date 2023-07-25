@@ -74,7 +74,7 @@ float roc_rk3588s_pc_average_temperature()
 		// something more here
 	}
 }
-void roc_rk3588s_pc_fan_thread_daemon(void * arg)
+void* roc_rk3588s_pc_fan_thread_daemon(void * arg)
 {
 	int x = 0;
 	while (1) {
@@ -85,8 +85,8 @@ void roc_rk3588s_pc_fan_thread_daemon(void * arg)
 		}
 		x = 0;
 		const float temp = roc_rk3588s_pc_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
-		// shouldn't you now be setting the pwm now?
-		// does this daemon even do anything but output the temperature?
+		// shouldn't you be setting the pwm now?
+		// does this daemon even do anything besides outputing the temperature?
 	}
 }
 void PID_init(int s3c, float x0[])
@@ -206,8 +206,8 @@ int main(int argc, char **argv)
 			// and w0, w0, 0xff
 			set_fan_pwm(s3c, pwm);
 			if (s3c) {
-				// those threadN error messages don't make any sense
-				// also you could have had used 1 or 2 pthreads, 6 of which at max 2 are used
+				// those threadN create error messages don't make any sense
+				// also you could have used 1 or 2 pthreads, you have 6 of which at max 2 are used
 				pthread_t t1, t2, t3, t4, t5, t6;
 				switch (s3c) {
 				case 0:
