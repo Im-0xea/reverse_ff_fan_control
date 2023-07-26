@@ -5,27 +5,57 @@
 #include <pthread.h>
 #include <unistd.h>
 
-
 int board;
 int PID_fan;
+int ROC_RK3588S_PC_VERSION;
+int uart_head = 0x8000aaaa;
 
-int get_ROC_RK3588S_PC_version()
+int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
-	FILE * iv = popen("cat /sys/bus/iio/devices/iio:device0/in_voltage5_raw", 0);
+	// TODO: my conciousness is fading rn
+}
+int init_uart(const char * tty_path) /* va_args - maybe / else done */
+{
+	const int fd = open(tty_path, 0x102);
+	if (fd < 0) {
+		printf("%s:open error!\n", tty_path);
+		fprintf(stderr, "uart_open %s error\n", tty_path);
+		perror("open:");
+		return -3;
+	}
+	if (0 >= uart_set(fd, 1, 8, 0, 1)) {
+		printf("%s:set error", tty_path);
+		// missing \n
+		fwrite("uart set failed!\n", 1, 0x11, stderr);
+		// fputs would be a bit more elagant
+		// also two error messages
+		return -3;
+	}
+	return fd;
+}
+int get_ROC_RK3588S_PC_version() /* done */
+{
+	FILE * iv = popen("cat /sys/bus/iio/devices/iio:device0/in_voltage5_raw", "r");
 	// the proper C way would be using open() and read()
 	if (!iv) {
-		puts("can not open /sys/bus/iio:device0/in_voltage5_raw");
+		puts("can not open /sys/bus/iio:device0/in_voltage5_raw file");
 		fclose(iv);
 		return -1;
 	}
-	char volt_str[1000];
+	char volt_str[1000] = "";
 	fgets(volt_str, 1000, iv);
 	// this read should not return more than 32 bytes
+	const size_t volt_len = strlen(volt_str);
+	volt_str[volt_len - 1] = '\0';
 	const int volt = (int) atof(volt_str);
 	fclose(iv);
-	return volt <= 0x64 && volt >= 0 ? -1 :
-	       volt < 0x79d || volt > 0x866 ? 0 :
-	       1;
+	if (volt >= 0) {
+		if (volt <= 0x64)
+			return 0;
+		if (volt >= 0x79d && volt <= 0x866)
+			return 1; 
+	}
+	return -1;
 }
 void fan_ROC_RK3588S_PC_init()
 {
@@ -33,6 +63,14 @@ void fan_ROC_RK3588S_PC_init()
 	// if you don't want to do this with open() and write()
 	// you should use system()
 	// popen() just leaked a fd
+}
+void fan_CS_R2_3399JD4_MAIN_init()
+{
+	int h4 = 0;
+	while (h4 < 3) {
+		//TODO
+	}
+	init_uart("/dev/ttyS0");
 }
 void set_ROC_RK3588S_PC_fan_pwm(int pwm)
 {
@@ -94,17 +132,17 @@ void* roc_rk3588s_pc_fan_thread_daemon(void * arg)
 		// potencially write to some thread shared pointer
 	}
 }
-void PID_init(int PID_fan /* x0 */, float x0[])
+void PID_init(float x0[])
 {
 	// 0x3c449ba6 in IEEE-754 0.12f
 	// 0x42400000 in IEEE-754 48.0f
 	// 0x000186a0 in IEEE-754 1.4f
 	switch (board) {
-	case 0:
+	case 1:
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
 		break;
-	case 1:
+	case 0:
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
 		break;
@@ -128,11 +166,11 @@ void PID_init(int PID_fan /* x0 */, float x0[])
 int fan_init()
 {
 	switch (board) {
+		case 1:
+			fan_CS_R2_3399JD4_MAIN_init();
+			break;
 		case 0:
 			//fan_CS_R1_3399JD4_MAIN_init();
-			break;
-		case 1:
-			//fan_CS_R2_3399JD4_MAIN_init();
 			break;
 		case 2:
 			fan_ROC_RK3588S_PC_init();
@@ -181,13 +219,13 @@ int main(int argc/* 1ch */, char **argv /* str */)
 		return 0;
 	}
 	
-	if (!strcmp("CS_R1-3399JD4-MAIN", argv[1])) {
-		//puts("board CS_R1_3399JD4_MAIN");
-		//board = 0;
-	} else if (!strcmp("CS-R2-3399JD4-MAIN", argv[1])) {
-		//puts("board CS_R2_3399JD4_MAIN");
-		//board = 1;
-	} else if (!strcmp("ROC-RK3588S-PC", argv[1])) {
+	if (!strcmp(argv[1], "CS_R1-3399JD4-MAIN")) {
+		puts("board CS_R1_3399JD4_MAIN");
+		board = 0;
+	} else if (!strcmp(argv[1], "CS-R2-3399JD4-MAIN")) {
+		puts("board CS_R2_3399JD4_MAIN");
+		board = 1;
+	} else if (!strcmp(argv[1], "ROC-RK3588S-PC")) {
 		puts("board ROC-RK3588S-PC");
 		board = 2;
 		const int RK3588S_V = get_ROC_RK3588S_PC_version();
@@ -195,20 +233,27 @@ int main(int argc/* 1ch */, char **argv /* str */)
 			puts("can not judge ROC-RK3588S-PC version");
 			return -1;
 		} else if (!RK3588S_V) {
+			ROC_RK3588S_PC_VERSION = 0;
 			puts("board ROC-RK3588 S-PC VERSION v0.1");
 		} else if (RK3588S_V == 1) {
+			ROC_RK3588S_PC_VERSION = 1;
 			puts("board ROC-RK3588 S-PC VERSION v1.X");
 		}
-	} else if (!strcmp("ITX_3588J 50", argv[1])) {
-		//puts("board ITX-3588J");
-		//board = 3;
+	} else if (!strcmp(argv[1], "ITX_3588J 50")) {
+		puts("board ITX-3588J");
+		board = 3;
+	} else if (!strcmp(argv[1], "ROC-RK3588-PC")) {
+		puts("board ROC-RK3588-PC");
+		board = 4;
 	}
 	// if you didn't change the model formats
 	// you could have just made the models to strings
 	// and you could have done most of this in one place
-	// it would also be smart to error out if no model is specified
-	float x0[10];
-	PID_init(PID_fan, x0);
+	// it would also be smart to error out if no valid model is specified
+	//-------------------------------------------------------------------------------
+
+	float x0[4];
+	PID_init(x0);
 	const int ch1 = fan_init();
 	pthread_t t1, t2, t3, t4, t5, t6;
 	if (argc > 2) {
