@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
 #include <pthread.h>
 #include <unistd.h>
 
@@ -12,6 +13,12 @@ int uart_head = 0x8000aaaa;
 
 int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
+	struct termios tio;
+	if (tcgetattr(fd, &tio)) {
+		perror("Setupserial 1");
+		return -1;
+	}
+	
 	// TODO: my conciousness is fading rn
 }
 int init_uart(const char * tty_path) /* va_args - maybe / else done */
@@ -159,7 +166,8 @@ void PID_init(float x0[])
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
 		break;
 	}
-	// these happen to all be the same
+	// FIXME: var / arg is not the same, this is not correct
+	// these happen to all be the same 
 	// also making a function out of the initilization of a float array
 	// seams a bit off
 }
