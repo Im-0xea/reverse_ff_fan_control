@@ -18,8 +18,22 @@ int uart_set(int fd, int x1, int x2, int x3, int x4)
 		perror("Setupserial 1");
 		return -1;
 	}
-	
-	// TODO: my conciousness is fading rn
+	// TODO: set termios flags correctly
+	if (x2 == 7)
+		;
+	else if (x2 == 8)
+		;
+	if (x3 == 3)
+		;
+	else {
+		
+	}
+	tcflush(fd, 0);
+	if (tcsetattr(fd, 0, &tio)) {
+		perror("com set error");
+		return -1;
+	}
+	return 0;
 }
 int init_uart(const char * tty_path) /* va_args - maybe / else done */
 {
@@ -64,12 +78,33 @@ int get_ROC_RK3588S_PC_version() /* done */
 	}
 	return -1;
 }
-void fan_ROC_RK3588S_PC_init()
+void fan_ROC_RK3588S_PC_init() /* done */
 {
-	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", 0);
+	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", "r");
 	// if you don't want to do this with open() and write()
 	// you should use system()
 	// popen() just leaked a fd
+	// also you should check if your write was actually successful
+}
+void fan_ROC_RK3588_PC_init() /* done */
+{
+	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", "r");
+	// see comments on RK3588S init
+}
+void fan_ITX_3588J_init() /* done */
+{
+	popen("echo 50 > /sys/devices/platform/pwm-fan/hwmon/hwmon0/pwm1", "r");
+	// see comments on RK3588S init
+}
+void fan_CS_R1_3399JD4_MAIN_init() /* done */
+{
+	popen("echo 0 > /sys/class/pwm/pwmchip0/export", "r");
+	sleep(1);
+	popen("echo 100000 > /sys/class/pwm/pwmchip0/pwm0/period", "r");
+	popen("echo 60000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle", "r");
+	popen("echo inversed > /sys/class/pwm/pwmchip0/pwm0/polarity", "r");
+	popen("echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable", "r");
+	// 5 leaked file * 
 }
 void fan_CS_R2_3399JD4_MAIN_init()
 {
@@ -79,7 +114,7 @@ void fan_CS_R2_3399JD4_MAIN_init()
 	}
 	init_uart("/dev/ttyS0");
 }
-void set_ROC_RK3588S_PC_fan_pwm(int pwm)
+void set_ROC_RK3588S_PC_fan_pwm(int pwm) 
 {
 	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
 	printf("set_PWM: %d\npwm: %d\n", 0, pwm);
@@ -95,6 +130,15 @@ void set_ROC_RK3588S_PC_fan_pwm(int pwm)
 	// good practice(and compiler warnings) would demand another fail check here
 	// especially because this is a write which is likely to fail
 	close(fd);
+}
+void set_CS_R2_3399JD4_MAIN_fan_pwm(int pwm, int sth)
+{
+	int h1 = 0;
+	if (sth <= 0x13) {
+		if (fan_switch <= 0) {
+			
+		}
+	}
 }
 float roc_rk3588s_pc_average_temperature()
 {
@@ -178,16 +222,16 @@ int fan_init()
 			fan_CS_R2_3399JD4_MAIN_init();
 			break;
 		case 0:
-			//fan_CS_R1_3399JD4_MAIN_init();
+			fan_CS_R1_3399JD4_MAIN_init();
 			break;
 		case 2:
 			fan_ROC_RK3588S_PC_init();
 			break;
 		case 3:
-			//fan_ITX_3588J_init();
+			fan_ITX_3588J_init();
 			break;
 		case 4:
-			//fan_ROC_RK3588_PC_init();
+			fan_ROC_RK3588_PC_init();
 			break;
 	}
 	sleep(2);
@@ -200,7 +244,7 @@ int set_fan_pwm(int pwm)
 			//set_CS_R1_3399JD4_MAIN_fan_pwm(pwm);
 			break;
 		case 1:
-			//set_CS_R2_3399JD4_MAIN_fan_pwm(pwm);
+			set_CS_R2_3399JD4_MAIN_fan_pwm(pwm);
 			break;
 		case 2:
 			set_ROC_RK3588S_PC_fan_pwm(pwm);
