@@ -10,6 +10,7 @@ int board;
 int PID_fan;
 int ROC_RK3588S_PC_VERSION;
 int uart_head = 0x8000aaaa;
+int fan_switch;
 
 int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
@@ -54,6 +55,7 @@ int init_uart(const char * tty_path) /* va_args - maybe / else done */
 	}
 	return fd;
 }
+// ROC_RK3588S_PC -----------------------------------------
 int get_ROC_RK3588S_PC_version() /* done */
 {
 	FILE * iv = popen("cat /sys/bus/iio/devices/iio:device0/in_voltage5_raw", "r");
@@ -86,38 +88,10 @@ void fan_ROC_RK3588S_PC_init() /* done */
 	// popen() just leaked a fd
 	// also you should check if your write was actually successful
 }
-void fan_ROC_RK3588_PC_init() /* done */
-{
-	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", "r");
-	// see comments on RK3588S init
-}
-void fan_ITX_3588J_init() /* done */
-{
-	popen("echo 50 > /sys/devices/platform/pwm-fan/hwmon/hwmon0/pwm1", "r");
-	// see comments on RK3588S init
-}
-void fan_CS_R1_3399JD4_MAIN_init() /* done */
-{
-	popen("echo 0 > /sys/class/pwm/pwmchip0/export", "r");
-	sleep(1);
-	popen("echo 100000 > /sys/class/pwm/pwmchip0/pwm0/period", "r");
-	popen("echo 60000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle", "r");
-	popen("echo inversed > /sys/class/pwm/pwmchip0/pwm0/polarity", "r");
-	popen("echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable", "r");
-	// 5 leaked file * 
-}
-void fan_CS_R2_3399JD4_MAIN_init()
-{
-	int h4 = 0;
-	while (h4 < 3) {
-		//TODO
-	}
-	init_uart("/dev/ttyS0");
-}
-void set_ROC_RK3588S_PC_fan_pwm(int pwm) 
+void set_ROC_RK3588S_PC_fan_pwm(char * pwm) 
 {
 	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
-	printf("set_PWM: %d\npwm: %d\n", 0, pwm);
+	printf("set_PWM: %d\npwm: %d\n", 0, *pwm);
 	const int fd = open(pwm_p, O_WRONLY);
 	if (fd < 1) {
 		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", pwm_p);
@@ -125,20 +99,11 @@ void set_ROC_RK3588S_PC_fan_pwm(int pwm)
 		// instead you are writting and closing a invalid fd
 	}
 	char buf[0x18];
-	sprintf(buf, "%d", pwm);
+	sprintf(buf, "%d", *pwm);
 	write(fd, buf, strlen(buf));
 	// good practice(and compiler warnings) would demand another fail check here
 	// especially because this is a write which is likely to fail
 	close(fd);
-}
-void set_CS_R2_3399JD4_MAIN_fan_pwm(int pwm, int sth)
-{
-	int h1 = 0;
-	if (sth <= 0x13) {
-		if (fan_switch <= 0) {
-			
-		}
-	}
 }
 float roc_rk3588s_pc_average_temperature()
 {
@@ -182,6 +147,70 @@ void* roc_rk3588s_pc_fan_thread_daemon(void * arg)
 		const float temp = roc_rk3588s_pc_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
 		// potencially write to some thread shared pointer
 	}
+}
+// ROC_RK3588_PC --------------------------------------------
+void fan_ROC_RK3588_PC_init() /* done */
+{
+	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", "r");
+	// see comments on RK3588S init
+}
+// ----------------------------------------------------------
+void fan_ITX_3588J_init() /* done */
+{
+	popen("echo 50 > /sys/devices/platform/pwm-fan/hwmon/hwmon0/pwm1", "r");
+	// see comments on RK3588S init
+}
+void fan_CS_R1_3399JD4_MAIN_init() /* done */
+{
+	popen("echo 0 > /sys/class/pwm/pwmchip0/export", "r");
+	sleep(1);
+	popen("echo 100000 > /sys/class/pwm/pwmchip0/pwm0/period", "r");
+	popen("echo 60000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle", "r");
+	popen("echo inversed > /sys/class/pwm/pwmchip0/pwm0/polarity", "r");
+	popen("echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable", "r");
+	// 5 leaked file * 
+}
+void fan_CS_R2_3399JD4_MAIN_init()
+{
+	int h4 = 0;
+	while (h4 < 3) {
+		//TODO
+	}
+	init_uart("/dev/ttyS0");
+}
+void set_CS_R1_3399JD4_MAIN_fan_pwm(char * pwm, int sth) /* done */
+{
+	// TODO:
+}
+void set_CS_R2_3399JD4_MAIN_fan_pwm(char * pwm, int sth) /* done */
+{
+	char h1 = 0;
+	char ch;
+	if (sth <= 0x13) {
+		if (sth <= 0x9)
+			h1 = fan_switch <= 0 ? 0x2a : 0x15;
+		ch = '0';
+	} else if (sth <= 0x27) {
+		if (sth <= 0x1d)
+			h1 = fan_switch <= 0 ? 0x2a : 0x15;
+		ch = '1';
+	} else if (sth <= 0x3b) {
+		if (sth <= 0x31)
+			h1 = fan_switch <= 0 ? 0x2a : 0x15;
+		ch = '2';
+	} else if (sth <= 0x4f) {
+		if (sth <= 0x45)
+			h1 = fan_switch <= 0 ? 0x2a : 0x15;
+		ch = '3';
+	} else {
+		if (sth <= 0x59)
+			h1 = fan_switch <= 0 ? 0x2a : 0x15;
+		ch = '4';
+	}
+	pwm[9] = h1;
+	pwm[11] = ch;
+	pwm[45] = h1;
+	pwm[47] = ch;
 }
 void PID_init(float x0[])
 {
@@ -237,14 +266,14 @@ int fan_init()
 	sleep(2);
 	return 2;
 }
-int set_fan_pwm(int pwm)
+int set_fan_pwm(char * pwm)
 {
 	switch (board) {
 		case 0:
-			//set_CS_R1_3399JD4_MAIN_fan_pwm(pwm);
+			set_CS_R1_3399JD4_MAIN_fan_pwm(pwm);
 			break;
 		case 1:
-			set_CS_R2_3399JD4_MAIN_fan_pwm(pwm);
+			set_CS_R2_3399JD4_MAIN_fan_pwm(pwm, 69);
 			break;
 		case 2:
 			set_ROC_RK3588S_PC_fan_pwm(pwm);
@@ -312,8 +341,9 @@ int main(int argc/* 1ch */, char **argv /* str */)
 		// this is not proper argument parsing
 		// it is better to either use a plain loop or getopts
 		if (strcmp("--debug", argv[2])) {
-			const int pwm = atoi(argv[2]);
+			const int in = atoi(argv[2]);
 			// and w0, w0, 0xff
+			char pwm[50];
 			set_fan_pwm(pwm);
 			// those "threadN create error" messages don't make any sense
 			// and don't give any indication were the issue is
