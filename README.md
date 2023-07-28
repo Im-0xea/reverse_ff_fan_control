@@ -10,12 +10,9 @@ This includes all bugs and horrible programming practice, which I ofc commented 
 
 About the binary: it was not stripped and compiled with -O0 on gcc-9.4.0-1.against glibc-2.17, on a Ubuntu-20.04.1 machine.
 
-This gives me the ability to determine nearly the exact way it was written, making it a nice exercise, while also not too tedious.
+This gives me the ability to read names of non-static functions and global variables and see clean code constructs which are easy to translate to C
 
 Tools used:
 
-- radare2
-- nm
-- xxd
-- readelf
-- filemagic
+- radare2 / rizin
+- cutter
