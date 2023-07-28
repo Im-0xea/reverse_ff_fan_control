@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <termios.h>
 #include <pthread.h>
@@ -15,12 +16,27 @@ enum sbc {
 };
 
 enum sbc board;
-int PID_fan;
+char PID_fan[40];
+char PID_debug_buff[1024];
 int ROC_RK3588S_PC_VERSION;
 int uart_head = 0x8000aaaa;
 int fan_switch;
 char global_pwm[16];
 char sth_pwm[16];
+
+bool completed;
+int temperature;
+int count;
+int tmp;
+int global_debug;
+int uart_end;
+int uart_cmd;
+char global_fan_speed[40];
+int global_temperature;
+int start;
+int debug_buff_count;
+char firefly_fan[72];
+
 
 int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
