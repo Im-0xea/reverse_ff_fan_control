@@ -6,7 +6,15 @@
 #include <pthread.h>
 #include <unistd.h>
 
-int board;
+enum sbc {
+	CS_R1_3399JD4 = 0,
+	CS_R2_3399JD4 = 1,
+	ROC_RK3588S_PC = 2,
+	ITX_3588J = 3,
+	ROC_RK3588_PC = 4
+};
+
+enum sbc board;
 int PID_fan;
 int ROC_RK3588S_PC_VERSION;
 int uart_head = 0x8000aaaa;
@@ -221,10 +229,31 @@ void set_CS_R2_3399JD4_MAIN_fan_pwm(char * pwm, int sth) /* done */
 	pwm[45] = h1;
 	pwm[47] = ch;
 }
-void set_fan_ITX_3588J_fan_pwm(char pwm_ch) {
+void set_fan_ITX_3588J_fan_pwm(char pwm_ch)
+{
 	// TODO
 }
 void set_ROC_RK3588_PC_fan_pwm(char pwm_ch)
+{
+	// TODO
+}
+void* roc_rk3588_pc_fan_thread_daemon(void * arg)
+{
+	// TODO
+}
+void* cs_r1_3399jd4_main_fan_thread_daemon(void * arg)
+{
+	// TODO
+}
+void* fan_thread_rx(void * arg)
+{
+	// TODO
+}
+void* fan_thread_tx(void * arg)
+{
+	// TODO
+}
+void* itx_3588j_fan_thread_daemon(void * arg)
 {
 	// TODO
 }
@@ -234,23 +263,23 @@ void PID_init(float x0[])
 	// 0x42400000 in IEEE-754 48.0f
 	// 0x000186a0 in IEEE-754 1.4f
 	switch (board) {
-	case 1:
+	case CS_R2_3399JD4: // 1
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
 		break;
-	case 0:
+	case CS_R1_3399JD4: // 0
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
 		break;
-	case 2:
+	case ROC_RK3588S_PC: // 2
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
 		break;
-	case 3:
+	case ITX_3588J: // 3
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
 		break;
-	case 4:
+	case ROC_RK3588_PC: // 4
 		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
 		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
 		break;
@@ -263,19 +292,19 @@ void PID_init(float x0[])
 int fan_init()
 {
 	switch (board) {
-		case 1:
+		case CS_R2_3399JD4: // 1
 			fan_CS_R2_3399JD4_MAIN_init();
 			break;
-		case 0:
+		case CS_R1_3399JD4: // 0
 			fan_CS_R1_3399JD4_MAIN_init();
 			break;
-		case 2:
+		case ROC_RK3588S_PC: // 2
 			fan_ROC_RK3588S_PC_init();
 			break;
-		case 3:
+		case ITX_3588J: // 3
 			fan_ITX_3588J_init();
 			break;
-		case 4:
+		case ROC_RK3588_PC: // 4
 			fan_ROC_RK3588_PC_init();
 			break;
 	}
@@ -286,19 +315,19 @@ void set_fan_pwm(char pwm_ch) /* done */
 {
 	global_pwm[0] = pwm_ch;
 	switch (board) {
-		case 1:
+		case CS_R2_3399JD4: // 1
 			set_CS_R2_3399JD4_MAIN_fan_pwm(sth_pwm, pwm_ch);
 			break;
-		case 0:
+		case CS_R1_3399JD4: // 0
 			set_CS_R1_3399JD4_MAIN_fan_pwm(pwm_ch);
 			break;
-		case 2:
+		case ROC_RK3588S_PC: // 2
 			set_ROC_RK3588S_PC_fan_pwm(pwm_ch);
 			break;
-		case 3:
+		case ITX_3588J: // 3
 			set_fan_ITX_3588J_fan_pwm(pwm_ch);
 			break;
-		case 4:
+		case ROC_RK3588_PC: // 4
 			set_ROC_RK3588_PC_fan_pwm(pwm_ch);
 			break;
 	}
@@ -318,13 +347,13 @@ int main(int argc/* 1ch */, char **argv /* str */)
 	
 	if (!strcmp(argv[1], "CS_R1-3399JD4-MAIN")) {
 		puts("board CS_R1_3399JD4_MAIN");
-		board = 0;
+		board = CS_R1_3399JD4;
 	} else if (!strcmp(argv[1], "CS-R2-3399JD4-MAIN")) {
 		puts("board CS_R2_3399JD4_MAIN");
-		board = 1;
+		board = CS_R2_3399JD4;
 	} else if (!strcmp(argv[1], "ROC-RK3588S-PC")) {
 		puts("board ROC-RK3588S-PC");
-		board = 2;
+		board = ROC_RK3588S_PC;
 		const int RK3588S_V = get_ROC_RK3588S_PC_version();
 		if (RK3588S_V == -1) {
 			puts("can not judge ROC-RK3588S-PC version");
@@ -338,10 +367,10 @@ int main(int argc/* 1ch */, char **argv /* str */)
 		}
 	} else if (!strcmp(argv[1], "ITX_3588J 50")) {
 		puts("board ITX-3588J");
-		board = 3;
+		board = ITX_3588J;
 	} else if (!strcmp(argv[1], "ROC-RK3588-PC")) {
 		puts("board ROC-RK3588-PC");
-		board = 4;
+		board = ROC_RK3588_PC;
 	}
 	// if you didn't change the model formats
 	// you could have just made the models to strings
@@ -365,79 +394,79 @@ int main(int argc/* 1ch */, char **argv /* str */)
 			// also you could have used 1 or 2 pthreads
 			// you have 6 of which at max 2 are used
 			switch (board) {
-			case 0:
-				//if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
-				//	puts("thread3 create error");
-				//	return -1;
-				//}
+			case CS_R1_3399JD4: // 0
+				if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+					puts("thread3 create error");
+					return -1;
+				}
 				break;
-			case 1:
-				//if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
-				//	puts("thread1 create error");
-				//	return -1;
-				//}
-				//if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
-				//	puts("thread2 create error");
-				//	return -1;
-				//}
+			case CS_R2_3399JD4: // 1
+				if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
+					puts("thread1 create error");
+					return -1;
+				}
+				if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
+					puts("thread2 create error");
+					return -1;
+				}
 				break;
-			case 2:
+			case ROC_RK3588S_PC: // 2
 				if (pthread_create(&t4, NULL, roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
 					puts("thread4 create error");
 					return -1;
 				}
 				break;
-			case 3:
-				//if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
-				//	puts("thread5 create error");
-				//	return -1;
-				//}
-				//break;
-			case 4:
-				//if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
-				//	puts("thread4 create error");
-				//	return -1;
-				//}
-				//break;
+			case ITX_3588J: // 3
+				if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
+					puts("thread5 create error");
+					return -1;
+				}
+				break;
+			case ROC_RK3588_PC: // 4
+				if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
+					puts("thread4 create error");
+					return -1;
+				}
+				break;
 			}
 			while (1) sleep(1);
 		}
 	}
 	switch (board) {
-	case 0:
-		//if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
-		//	puts("thread3 create error");
-		//	return -1;
-		//}
+	case CS_R1_3399JD4: // 0
+		if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+			puts("thread3 create error");
+			return -1;
+		}
 		break;
-	case 1:
-		//if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
-		//	puts("thread1 create error");
-		//	return -1;
-		//}
-		//if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
-		//	puts("thread2 create error");
-		//	return -1;
-		//}
+	case CS_R2_3399JD4: // 1
+		if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
+			puts("thread1 create error");
+			return -1;
+		}
+		if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
+			puts("thread2 create error");
+			return -1;
+		}
 		break;
-	case 2:
+	case ROC_RK3588S_PC: // 2
 		if (pthread_create(&t4, NULL, roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
 			puts("thread4 create error");
 			return -1;
 		}
 		break;
-	case 3:
-		//if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
-		//	puts("thread5 create error");
-		//	return -1;
-		//}
-		//break;
-	case 4:
-		//if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
-		//	puts("thread4 create error");
-		//	return -1;
-		//}
-		//break;
+	case ITX_3588J: // 3
+		if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
+			puts("thread5 create error");
+			return -1;
+		}
+		break;
+	case ROC_RK3588_PC: // 4
+		if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
+			puts("thread4 create error");
+			return -1;
+		}
+		break;
 	}
 	set_fan_pwm(0);
 	//init_sigaction()
