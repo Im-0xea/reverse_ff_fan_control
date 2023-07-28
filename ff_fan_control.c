@@ -1,8 +1,10 @@
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/time.h>
 #include <termios.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -17,6 +19,7 @@ enum sbc {
 
 enum sbc board;
 char PID_fan[40];
+void (*PID_fan_func)(void);
 char PID_debug_buff[1024];
 int ROC_RK3588S_PC_VERSION;
 int uart_head = 0x8000aaaa;
@@ -37,7 +40,24 @@ int start;
 int debug_buff_count;
 char firefly_fan[72];
 
-
+void init_time()
+{
+	struct itimerval itv = {
+		.it_interval = {
+			.tv_sec = 0,
+			.tv_usec = 5
+		},
+		.it_value = {
+			.tv_sec = 0, // should be some .got pointer, might be best checked at runtime
+			.tv_usec = 0
+		}
+	};
+	setitimer(0, &itv, 0);
+}
+void init_sigaction()
+{
+	//TODO
+}
 int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
 	struct termios tio;
@@ -485,8 +505,8 @@ int main(int argc/* 1ch */, char **argv /* str */)
 		break;
 	}
 	set_fan_pwm(0);
-	//init_sigaction()
-	//init_time()
+	init_sigaction();
+	init_time();
 	printf("pwm: %d\n", 0);
 	// I guess here the actual fan control part is happening
 }
