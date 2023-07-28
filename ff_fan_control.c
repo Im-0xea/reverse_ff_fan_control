@@ -11,6 +11,8 @@ int PID_fan;
 int ROC_RK3588S_PC_VERSION;
 int uart_head = 0x8000aaaa;
 int fan_switch;
+char global_pwm[16];
+char sth_pwm[16];
 
 int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
@@ -35,6 +37,13 @@ int uart_set(int fd, int x1, int x2, int x3, int x4)
 		return -1;
 	}
 	return 0;
+}
+int sys_uart_close(const int fd) /* done */ /* UNUSED - thank god */
+{
+	close(fd);
+	return 0;
+	// is this really too complicated to remember?
+	// also you return 0 even on failure
 }
 int init_uart(const char * tty_path) /* va_args - maybe / else done */
 {
@@ -88,10 +97,10 @@ void fan_ROC_RK3588S_PC_init() /* done */
 	// popen() just leaked a fd
 	// also you should check if your write was actually successful
 }
-void set_ROC_RK3588S_PC_fan_pwm(char * pwm) 
+void set_ROC_RK3588S_PC_fan_pwm(char pwm) 
 {
 	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
-	printf("set_PWM: %d\npwm: %d\n", 0, *pwm);
+	printf("set_PWM: %d\npwm: %d\n", 0, pwm);
 	const int fd = open(pwm_p, O_WRONLY);
 	if (fd < 1) {
 		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", pwm_p);
@@ -99,7 +108,7 @@ void set_ROC_RK3588S_PC_fan_pwm(char * pwm)
 		// instead you are writting and closing a invalid fd
 	}
 	char buf[0x18];
-	sprintf(buf, "%d", *pwm);
+	sprintf(buf, "%d", pwm);
 	write(fd, buf, strlen(buf));
 	// good practice(and compiler warnings) would demand another fail check here
 	// especially because this is a write which is likely to fail
@@ -178,7 +187,7 @@ void fan_CS_R2_3399JD4_MAIN_init()
 	}
 	init_uart("/dev/ttyS0");
 }
-void set_CS_R1_3399JD4_MAIN_fan_pwm(char * pwm, int sth) /* done */
+void set_CS_R1_3399JD4_MAIN_fan_pwm(char sth)
 {
 	// TODO:
 }
@@ -211,6 +220,13 @@ void set_CS_R2_3399JD4_MAIN_fan_pwm(char * pwm, int sth) /* done */
 	pwm[11] = ch;
 	pwm[45] = h1;
 	pwm[47] = ch;
+}
+void set_fan_ITX_3588J_fan_pwm(char pwm_ch) {
+	// TODO
+}
+void set_ROC_RK3588_PC_fan_pwm(char pwm_ch)
+{
+	// TODO
 }
 void PID_init(float x0[])
 {
@@ -266,26 +282,26 @@ int fan_init()
 	sleep(2);
 	return 2;
 }
-int set_fan_pwm(char * pwm)
+void set_fan_pwm(char pwm_ch) /* done */
 {
+	global_pwm[0] = pwm_ch;
 	switch (board) {
-		case 0:
-			set_CS_R1_3399JD4_MAIN_fan_pwm(pwm);
-			break;
 		case 1:
-			set_CS_R2_3399JD4_MAIN_fan_pwm(pwm, 69);
+			set_CS_R2_3399JD4_MAIN_fan_pwm(sth_pwm, pwm_ch);
+			break;
+		case 0:
+			set_CS_R1_3399JD4_MAIN_fan_pwm(pwm_ch);
 			break;
 		case 2:
-			set_ROC_RK3588S_PC_fan_pwm(pwm);
+			set_ROC_RK3588S_PC_fan_pwm(pwm_ch);
 			break;
 		case 3:
-			//set_fan_ITX_3588J_fan_pwm(pwm);
+			set_fan_ITX_3588J_fan_pwm(pwm_ch);
 			break;
 		case 4:
-			//set_ROC_RK3588_PC_fan_pwm(pwm);
+			set_ROC_RK3588_PC_fan_pwm(pwm_ch);
 			break;
 	}
-	return 2;
 }
 int main(int argc/* 1ch */, char **argv /* str */)
 {
@@ -343,8 +359,7 @@ int main(int argc/* 1ch */, char **argv /* str */)
 		if (strcmp("--debug", argv[2])) {
 			const int in = atoi(argv[2]);
 			// and w0, w0, 0xff
-			char pwm[50];
-			set_fan_pwm(pwm);
+			set_fan_pwm(5);
 			// those "threadN create error" messages don't make any sense
 			// and don't give any indication were the issue is
 			// also you could have used 1 or 2 pthreads
