@@ -15,4 +15,5 @@ This gives me the ability to read names of non-static functions and global varia
 Tools used:
 
 - radare2 / rizin
-- cutter
+- r2ghidra / rzghidra decompiler
+- iaito / cutter

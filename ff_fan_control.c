@@ -56,7 +56,9 @@ void init_time()
 }
 void init_sigaction()
 {
-	//TODO
+	sigset_t sigset;
+	sigemptyset(&sigset);
+	sigaction(0xe, PID_fan_func, 0);
 }
 int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
@@ -89,16 +91,16 @@ int sys_uart_close(const int fd) /* done */ /* UNUSED - thank god */
 	// is this really too complicated to remember?
 	// also you return 0 even on failure
 }
-int init_uart(const char * tty_path) /* va_args - maybe / else done */
+int init_uart(const char * tty_path) /* done */
 {
-	const int fd = open(tty_path, 0x102);
+	const int fd = open(tty_path, O_RDWR & AT_SYMLINK_NOFOLLOW); // 0x102
 	if (fd < 0) {
 		printf("%s:open error!\n", tty_path);
 		fprintf(stderr, "uart_open %s error\n", tty_path);
 		perror("open:");
 		return -3;
 	}
-	if (0 >= uart_set(fd, 1, 8, 0, 1)) {
+	if (1 > uart_set(fd, 1, 8, 0, 1)) {
 		printf("%s:set error", tty_path);
 		// missing \n
 		fwrite("uart set failed!\n", 1, 0x11, stderr);
@@ -162,7 +164,7 @@ float roc_rk3588s_pc_average_temperature()
 {
 	int h14 = 0;
 	float h18 = 0;
-	FILE * temp_file = popen("cat /sys/class/thermal/thermal_zone*/temp", 0);
+	FILE * temp_file = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
 	if (temp_file == 0) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
@@ -171,35 +173,31 @@ float roc_rk3588s_pc_average_temperature()
 	}
 	char buf[1000];
 	// this read will never return more than 32 chars
-	while (1) {
-		if (!fgets(buf, 1000, temp_file)) {
-			if (h14 < 1) {
-				// something
-			}
-			printf("sum = %f\n", h18);
-			fclose(temp_file);
-			return h18; // maybe
-		}
+	while (!fgets(buf, 1000, temp_file)) {
 		const int temp_l = strlen(buf);
+		buf[temp_l - 1] = 0;
 		h18 = atof(buf); // some ops might still be here
 		printf("%f\n", h18);
 		// something more here
 	}
+	if (h14 < 1) {
+		// something
+	}
+	printf("sum = %f\n", h18);
+	fclose(temp_file);
+	return h18;
 }
-void* roc_rk3588s_pc_fan_thread_daemon(void * arg)
+void* roc_rk3588s_pc_fan_thread_daemon(void * arg) /* done */
 {
 	int x = 0;
-	while (1) {
-		while (x != 4) {
+	do {
+		do {
 			usleep(50000);
-			x++;
 			// seams more practical to sleep 250000 ms once
-			// although I might have missed something here
-		}
+		} while (++x != 4);
 		x = 0;
-		const float temp = roc_rk3588s_pc_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
-		// potencially write to some thread shared pointer
-	}
+		global_temperature = roc_rk3588s_pc_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
+	} while (1);
 }
 // ROC_RK3588_PC --------------------------------------------
 void fan_ROC_RK3588_PC_init() /* done */
@@ -223,13 +221,15 @@ void fan_CS_R1_3399JD4_MAIN_init() /* done */
 	popen("echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable", "r");
 	// 5 leaked file * 
 }
-void fan_CS_R2_3399JD4_MAIN_init()
+int fan_CS_R2_3399JD4_MAIN_init()
 {
 	int h4 = 0;
 	while (h4 < 3) {
 		//TODO
 	}
 	init_uart("/dev/ttyS0");
+	init_uart("/dev/ttyS4");
+	return 0;
 }
 void set_CS_R1_3399JD4_MAIN_fan_pwm(char sth)
 {
@@ -325,11 +325,11 @@ void PID_init(float x0[])
 	// also making a function out of the initilization of a float array
 	// seams a bit off
 }
-int fan_init()
+void fan_init()
 {
 	switch (board) {
 		case CS_R2_3399JD4: // 1
-			fan_CS_R2_3399JD4_MAIN_init();
+			fan_CS_R2_3399JD4_MAIN_init(/* something */);
 			break;
 		case CS_R1_3399JD4: // 0
 			fan_CS_R1_3399JD4_MAIN_init();
@@ -345,7 +345,6 @@ int fan_init()
 			break;
 	}
 	sleep(2);
-	return 2;
 }
 void set_fan_pwm(char pwm_ch) /* done */
 {
@@ -368,9 +367,9 @@ void set_fan_pwm(char pwm_ch) /* done */
 			break;
 	}
 }
-int main(int argc/* 1ch */, char **argv /* str */)
+int main(int argc, char **argv)
 {
-	if (argc <= 1) {
+	if (argc < 2) {
 		puts("./main CS-R1-3399JD4-MAIN 50");
 		puts("./main CS-R2-3399JD4-MAIN --debug");
 		puts("./main ROC-RK3588S-PC 50");
@@ -469,12 +468,6 @@ int main(int argc/* 1ch */, char **argv /* str */)
 		}
 	}
 	switch (board) {
-	case CS_R1_3399JD4: // 0
-		if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
-			puts("thread3 create error");
-			return -1;
-		}
-		break;
 	case CS_R2_3399JD4: // 1
 		if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
 			puts("thread1 create error");
@@ -482,6 +475,12 @@ int main(int argc/* 1ch */, char **argv /* str */)
 		}
 		if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
 			puts("thread2 create error");
+			return -1;
+		}
+		break;
+	case CS_R1_3399JD4: // 0
+		if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+			puts("thread3 create error");
 			return -1;
 		}
 		break;
@@ -504,9 +503,21 @@ int main(int argc/* 1ch */, char **argv /* str */)
 		}
 		break;
 	}
-	set_fan_pwm(0);
+	set_fan_pwm(global_pwm);
 	init_sigaction();
 	init_time();
-	printf("pwm: %d\n", 0);
-	// I guess here the actual fan control part is happening
+	printf("pwm: %d\n", global_pwm);
+	if (board == CS_R2_3399JD4) {
+		if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
+			puts("thread1 create error");
+			return -1;
+		}
+		if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
+			puts("thread2 create error");
+			return -1;
+		}
+	}
+	while (start) sleep(1);
+	set_fan_pwm(0);
+	return 0;
 }
