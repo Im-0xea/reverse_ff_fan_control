@@ -19,12 +19,12 @@ enum sbc {
 
 enum sbc board;
 char PID_fan[40];
-void (*PID_fan_func)(void);
+void (*PID_fan_func)(int);
 char PID_debug_buff[1024];
 int ROC_RK3588S_PC_VERSION;
-int uart_head = 0x8000aaaa;
+int uart_head;
 int fan_switch;
-char global_pwm[16];
+int global_pwm;
 char sth_pwm[16];
 
 bool completed;
@@ -56,9 +56,11 @@ void init_time()
 }
 void init_sigaction()
 {
-	sigset_t sigset;
-	sigemptyset(&sigset);
-	sigaction(0xe, PID_fan_func, 0);
+	struct sigaction sa;
+	sa.sa_handler = PID_fan_func;
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGALRM, &sa, 0);
+	// might want an error check here
 }
 int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
@@ -147,7 +149,7 @@ void set_ROC_RK3588S_PC_fan_pwm(char pwm)
 {
 	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
 	printf("set_PWM: %d\npwm: %d\n", 0, pwm);
-	const int fd = open(pwm_p, O_WRONLY);
+	const int fd = open(pwm_p, O_RDWR & 0x900); // 0x902
 	if (fd < 1) {
 		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", pwm_p);
 		// at this point you should be returning
@@ -205,12 +207,53 @@ void fan_ROC_RK3588_PC_init() /* done */
 	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", "r");
 	// see comments on RK3588S init
 }
-// ----------------------------------------------------------
+float roc_rk3588_pc_average_temperature()
+{
+	// TODO
+}
+void* roc_rk3588_pc_fan_thread_daemon(void * arg) /* done */
+{
+	int x = 0;
+	do {
+		do {
+			usleep(50000);
+			// see comment rk3588s thread daemon
+		} while (++x != 4);
+		x = 0;
+		global_temperature = roc_rk3588_pc_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
+	} while (1);
+}
+void set_ROC_RK3588_PC_fan_pwm(char pwm_ch)
+{
+	// TODO
+}
+// ITX_3588J ------------------------------------------------
 void fan_ITX_3588J_init() /* done */
 {
 	popen("echo 50 > /sys/devices/platform/pwm-fan/hwmon/hwmon0/pwm1", "r");
 	// see comments on RK3588S init
 }
+float itx_3588j_average_temperature()
+{
+	// TODO
+}
+void* itx_3588j_fan_thread_daemon(void * arg) /* done */
+{
+	int x = 0;
+	do {
+		do {
+			usleep(50000);
+			// see comment rk3588s thread daemon
+		} while (++x != 4);
+		x = 0;
+		global_temperature = itx_3588j_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
+	} while (1);
+}
+void set_fan_ITX_3588J_fan_pwm(char pwm_ch)
+{
+	// TODO
+}
+// ----------------------------------------
 void fan_CS_R1_3399JD4_MAIN_init() /* done */
 {
 	popen("echo 0 > /sys/class/pwm/pwmchip0/export", "r");
@@ -221,6 +264,23 @@ void fan_CS_R1_3399JD4_MAIN_init() /* done */
 	popen("echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable", "r");
 	// 5 leaked file * 
 }
+void* cs_r1_3399jd4_main_fan_thread_daemon(void * arg)
+{
+	// TODO
+}
+void set_CS_R1_3399JD4_MAIN_fan_pwm(char sth)
+{
+	// TODO:
+}
+// -----------------------------------------
+void* fan_thread_rx(void * arg)
+{
+	// TODO
+}
+void* fan_thread_tx(void * arg)
+{
+	// TODO
+}
 int fan_CS_R2_3399JD4_MAIN_init()
 {
 	int h4 = 0;
@@ -230,10 +290,6 @@ int fan_CS_R2_3399JD4_MAIN_init()
 	init_uart("/dev/ttyS0");
 	init_uart("/dev/ttyS4");
 	return 0;
-}
-void set_CS_R1_3399JD4_MAIN_fan_pwm(char sth)
-{
-	// TODO:
 }
 void set_CS_R2_3399JD4_MAIN_fan_pwm(char * pwm, int sth) /* done */
 {
@@ -265,34 +321,7 @@ void set_CS_R2_3399JD4_MAIN_fan_pwm(char * pwm, int sth) /* done */
 	pwm[45] = h1;
 	pwm[47] = ch;
 }
-void set_fan_ITX_3588J_fan_pwm(char pwm_ch)
-{
-	// TODO
-}
-void set_ROC_RK3588_PC_fan_pwm(char pwm_ch)
-{
-	// TODO
-}
-void* roc_rk3588_pc_fan_thread_daemon(void * arg)
-{
-	// TODO
-}
-void* cs_r1_3399jd4_main_fan_thread_daemon(void * arg)
-{
-	// TODO
-}
-void* fan_thread_rx(void * arg)
-{
-	// TODO
-}
-void* fan_thread_tx(void * arg)
-{
-	// TODO
-}
-void* itx_3588j_fan_thread_daemon(void * arg)
-{
-	// TODO
-}
+// ------------------------------
 void PID_init(float x0[])
 {
 	// 0x3c449ba6 in IEEE-754 0.12f
@@ -348,7 +377,7 @@ void fan_init()
 }
 void set_fan_pwm(char pwm_ch) /* done */
 {
-	global_pwm[0] = pwm_ch;
+	global_pwm = pwm_ch;
 	switch (board) {
 		case CS_R2_3399JD4: // 1
 			set_CS_R2_3399JD4_MAIN_fan_pwm(sth_pwm, pwm_ch);
@@ -415,7 +444,7 @@ int main(int argc, char **argv)
 
 	float x0[4];
 	PID_init(x0);
-	const int ch1 = fan_init();
+	fan_init();
 	pthread_t t1, t2, t3, t4, t5, t6;
 	if (argc > 2) {
 		// this is not proper argument parsing
