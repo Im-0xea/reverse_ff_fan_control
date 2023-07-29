@@ -52,7 +52,7 @@ void init_time()
 			.tv_usec = 0
 		}
 	};
-	setitimer(0, &itv, 0);
+	setitimer(ITIMER_REAL, &itv, 0);
 }
 void init_sigaction()
 {
@@ -273,13 +273,21 @@ void set_CS_R1_3399JD4_MAIN_fan_pwm(char sth)
 	// TODO:
 }
 // -----------------------------------------
+void send_fan_cmd(char * cmd)
+{
+	// TODO
+}
 void* fan_thread_rx(void * arg)
 {
 	// TODO
 }
 void* fan_thread_tx(void * arg)
 {
-	// TODO
+	do {
+		send_fan_cmd((char *) arg);
+		usleep(500000);
+		send_fan_cmd((char *) arg + 0x24);
+	} while (1);
 }
 int fan_CS_R2_3399JD4_MAIN_init()
 {
@@ -354,11 +362,11 @@ void PID_init(float x0[])
 	// also making a function out of the initilization of a float array
 	// seams a bit off
 }
-void fan_init()
+void fan_init() /* done */
 {
 	switch (board) {
 		case CS_R2_3399JD4: // 1
-			fan_CS_R2_3399JD4_MAIN_init(/* something */);
+			fan_CS_R2_3399JD4_MAIN_init(firefly_fan);
 			break;
 		case CS_R1_3399JD4: // 0
 			fan_CS_R1_3399JD4_MAIN_init();

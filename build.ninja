@@ -1,8 +1,0 @@
-cc = gcc
-cflags = -O0 -Wno-unused-result
-
-rule cc
- command = $cc -o $out $in $cflags
- description = compiling $out
-
-build ff_fan_control: cc ff_fan_control.c
