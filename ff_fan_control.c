@@ -166,15 +166,18 @@ void fan_ROC_RK3588S_PC_init() /* done */
 void set_ROC_RK3588S_PC_fan_pwm(char pwm) 
 {
 	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
+	int rpwm = 0;
 	switch (ROC_RK3588S_PC_VERSION) {
 	case 0:
+		rpwm = 0xff - (pwm * 0x100 - pwm) / 100;
 		break;
 	case 1:
+		rpwm = (pwm * 0x100  - pwm) / 100;
 		break;
 	default:
-		break
+		break;
 	}
-	printf("set_PWM: %d\npwm: %d\n", 0, pwm);
+	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
 	const int fd = open(pwm_p, O_RDWR & 0x900); // 0x902
 	if (fd < 1) {
 		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", pwm_p);
@@ -182,7 +185,7 @@ void set_ROC_RK3588S_PC_fan_pwm(char pwm)
 		// instead you are writting and closing a invalid fd
 	}
 	char buf[0x18];
-	sprintf(buf, "%d", pwm);
+	sprintf(buf, "%d", rpwm);
 	write(fd, buf, strlen(buf));
 	// good practice(and compiler warnings) would demand another fail check here
 	// especially because this is a write which is likely to fail
@@ -250,9 +253,21 @@ void* roc_rk3588_pc_fan_thread_daemon(void * arg) /* done */
 		global_temperature = roc_rk3588_pc_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
 	} while (1);
 }
-void set_ROC_RK3588_PC_fan_pwm(char pwm_ch)
+void set_ROC_RK3588_PC_fan_pwm(char pwm) 
 {
-	// TODO
+	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
+	const int rpwm = (pwm * 0x100 - pwm) / 100;
+	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
+	const int fd = open(pwm_p, O_RDWR & 0x900); // 0x902
+	if (fd < 1) {
+		printf("set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n", pwm_p);
+		// read comments set_ROC_RK3588S_PC_fan_pwm
+	}
+	char buf[0x18];
+	sprintf(buf, "%d", rpwm);
+	write(fd, buf, strlen(buf));
+	// read comments set_ROC_RK3588S_PC_fan_pwm
+	close(fd);
 }
 // ITX_3588J ------------------------------------------------
 void fan_ITX_3588J_init() /* done */
@@ -277,9 +292,21 @@ void* itx_3588j_fan_thread_daemon(void * arg) /* done */
 		global_temperature = itx_3588j_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
 	} while (1);
 }
-void set_fan_ITX_3588J_fan_pwm(char pwm_ch)
+void set_ITX_3588J_fan_pwm(char pwm) 
 {
-	// TODO
+	const char pwm_p[] = "/sys/class/hwmon/hwmon0/pwm1";
+	const int rpwm = (pwm * 0x100 - pwm) / 100;
+	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
+	const int fd = open(pwm_p, O_RDWR & 0x900); // 0x902
+	if (fd < 1) {
+		printf("set_ITX_3588J_fan_pwm: Can not open %s file\n", pwm_p);
+		// read comments set_ROC_RK3588S_PC_fan_pwm
+	}
+	char buf[0x18];
+	sprintf(buf, "%d", rpwm);
+	write(fd, buf, strlen(buf));
+	// read comments set_ROC_RK3588S_PC_fan_pwm
+	close(fd);
 }
 // ----------------------------------------
 void fan_CS_R1_3399JD4_MAIN_init() /* done */
@@ -299,9 +326,21 @@ void* cs_r1_3399jd4_main_fan_thread_daemon(void * arg)
 	
 	} while (1);
 }
-void set_CS_R1_3399JD4_MAIN_fan_pwm(char sth)
+void set_CS_R1_3399JD4_MAIN_fan_pwm(char pwm) 
 {
-	// TODO:
+	const char pwm_p[] = "/sys/class/pwm/pwmchip0/pwm0/duty_cycle";
+	const int rpwm = (pwm - 0x32) * 800 + 59000;
+	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
+	const int fd = open(pwm_p, O_RDWR & 0x900); // 0x902
+	if (fd < 1) {
+		printf("set_CS_R1_3399JD4_MAIN_fan_pwm: Can not open %s file\n", pwm_p);
+		// read comments set_ROC_RK3588S_PC_fan_pwm
+	}
+	char buf[0x18];
+	sprintf(buf, "%d", rpwm);
+	write(fd, buf, strlen(buf));
+	// read comments set_ROC_RK3588S_PC_fan_pwm
+	close(fd);
 }
 // -----------------------------------------
 void send_fan_cmd(char * cmd)
@@ -431,7 +470,7 @@ void set_fan_pwm(char pwm_ch) /* done */
 			set_ROC_RK3588S_PC_fan_pwm(pwm_ch);
 			break;
 		case ITX_3588J: // 3
-			set_fan_ITX_3588J_fan_pwm(pwm_ch);
+			set_ITX_3588J_fan_pwm(pwm_ch);
 			break;
 		case ROC_RK3588_PC: // 4
 			set_ROC_RK3588_PC_fan_pwm(pwm_ch);
@@ -450,7 +489,7 @@ int main(int argc, char **argv)
 		// but you are calling puts 5 times for what could be one write to stdout
 		return 0;
 	}
-	
+
 	if (!strcmp(argv[1], "CS_R1-3399JD4-MAIN")) {
 		puts("board CS_R1_3399JD4_MAIN");
 		board = CS_R1_3399JD4;
