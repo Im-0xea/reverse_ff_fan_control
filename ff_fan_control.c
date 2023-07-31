@@ -238,8 +238,30 @@ void fan_ROC_RK3588_PC_init() /* done */
 }
 float roc_rk3588_pc_average_temperature()
 {
-	// TODO
-	return 0.0f;
+	int h14 = 0;
+	float h18 = 0;
+	FILE * temp_file = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
+	if (temp_file == 0) {
+		puts("no such file /sys/class/thermal/thermal_zone*/temp");
+		return 50.0f; // 0x4248000 in IEEE-754
+		// we don't have a read, either through a misconfigured kernel or handware issues
+		// just returning 50 risks frying your board and leaves the issue undiscovered
+	}
+	char buf[1000];
+	// this read will never return more than 32 chars
+	while (!fgets(buf, 1000, temp_file)) {
+		const int temp_l = strlen(buf);
+		buf[temp_l - 1] = 0;
+		h18 = atof(buf); // some ops might still be here
+		printf("%f\n", h18);
+		// something more here
+	}
+	if (h14 < 1) {
+		// something
+	}
+	printf("sum = %f\n", h18);
+	fclose(temp_file);
+	return h18;
 }
 void* roc_rk3588_pc_fan_thread_daemon(void * arg) /* done */
 {
@@ -438,21 +460,21 @@ void PID_init(float x0[])
 void fan_init() /* done */
 {
 	switch (board) {
-		case CS_R2_3399JD4: // 1
-			fan_CS_R2_3399JD4_MAIN_init(firefly_fan);
-			break;
-		case CS_R1_3399JD4: // 0
-			fan_CS_R1_3399JD4_MAIN_init();
-			break;
-		case ROC_RK3588S_PC: // 2
-			fan_ROC_RK3588S_PC_init();
-			break;
-		case ITX_3588J: // 3
-			fan_ITX_3588J_init();
-			break;
-		case ROC_RK3588_PC: // 4
-			fan_ROC_RK3588_PC_init();
-			break;
+	case CS_R2_3399JD4: // 1
+		fan_CS_R2_3399JD4_MAIN_init(firefly_fan);
+		break;
+	case CS_R1_3399JD4: // 0
+		fan_CS_R1_3399JD4_MAIN_init();
+		break;
+	case ROC_RK3588S_PC: // 2
+		fan_ROC_RK3588S_PC_init();
+		break;
+	case ITX_3588J: // 3
+		fan_ITX_3588J_init();
+		break;
+	case ROC_RK3588_PC: // 4
+		fan_ROC_RK3588_PC_init();
+		break;
 	}
 	sleep(2);
 }
@@ -460,21 +482,21 @@ void set_fan_pwm(char pwm_ch) /* done */
 {
 	global_pwm = pwm_ch;
 	switch (board) {
-		case CS_R2_3399JD4: // 1
-			set_CS_R2_3399JD4_MAIN_fan_pwm(sth_pwm, pwm_ch);
-			break;
-		case CS_R1_3399JD4: // 0
-			set_CS_R1_3399JD4_MAIN_fan_pwm(pwm_ch);
-			break;
-		case ROC_RK3588S_PC: // 2
-			set_ROC_RK3588S_PC_fan_pwm(pwm_ch);
-			break;
-		case ITX_3588J: // 3
-			set_ITX_3588J_fan_pwm(pwm_ch);
-			break;
-		case ROC_RK3588_PC: // 4
-			set_ROC_RK3588_PC_fan_pwm(pwm_ch);
-			break;
+	case CS_R2_3399JD4: // 1
+		set_CS_R2_3399JD4_MAIN_fan_pwm(sth_pwm, pwm_ch);
+		break;
+	case CS_R1_3399JD4: // 0
+		set_CS_R1_3399JD4_MAIN_fan_pwm(pwm_ch);
+		break;
+	case ROC_RK3588S_PC: // 2
+		set_ROC_RK3588S_PC_fan_pwm(pwm_ch);
+		break;
+	case ITX_3588J: // 3
+		set_ITX_3588J_fan_pwm(pwm_ch);
+		break;
+	case ROC_RK3588_PC: // 4
+		set_ROC_RK3588_PC_fan_pwm(pwm_ch);
+		break;
 	}
 }
 int main(int argc, char **argv)
@@ -487,6 +509,7 @@ int main(int argc, char **argv)
 		puts("./main ROC-RK3588-PC 50");
 		// I know this might be more readable
 		// but you are calling puts 5 times for what could be one write to stdout
+		// also this is not proper usage
 		return 0;
 	}
 
