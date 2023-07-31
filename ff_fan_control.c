@@ -19,26 +19,29 @@ enum sbc {
 };
 
 enum sbc board;
-char PID_fan[40];
+char PID_fan[40]; // unused till now
 void (*PID_fan_func)(int);
-char PID_debug_buff[1024];
+char PID_debug_buff[1024]; // unused till now
 int ROC_RK3588S_PC_VERSION;
-int uart_head;
-int fan_switch;
-int global_pwm;
-char sth_pwm[16];
+int uart_head = 2863269888; // 0x8000aaaa; // unused till now
+int fan_switch = 1; // 0x01000000
+int global_pwm = 50; // 0x32000000
+char sth_pwm[16]; // not a real name
 
-bool completed;
-int temperature;
-int count;
-int tmp;
-int global_debug;
-int uart_end;
-int uart_cmd;
-char global_fan_speed[40];
+bool completed; // unused till now
+int temperature; // unused till now
+int count; // unused till now
+int tmp; // unused till now
+// while tmp is a fine name for a temporary var
+// for a global one that is a questionable choice
+
+int global_debug; // unused till now
+int uart_end = 8432298; // 0xaaaa8000 // unused till now
+int uart_cmd = 838860800; // 0x320000000 // unused till now
+char global_fan_speed[40]; // usused till now
 int global_temperature;
-int start;
-int debug_buff_count;
+int start = 1; // 0x01000000
+int debug_buff_count; // unused till now
 char firefly_fan[72];
 
 void init_time()
