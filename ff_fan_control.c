@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
@@ -93,6 +94,23 @@ int sys_uart_close(const int fd) /* done */ /* UNUSED - thank god */
 	// is this really too complicated to remember?
 	// also you return 0 even on failure
 }
+int sys_uart_write(int fd, char * buf, int nbytes)
+{
+	do {
+		if (nbytes == 0)
+			return nbytes;
+		const int wbytes = write(fd, buf, nbytes);
+		if (wbytes < 0) {
+			if (errno != EINTR) {
+				perror("sys_uart_write:write");
+				return -3;
+			}
+		}
+		nbytes -= wbytes;
+		buf += wbytes;
+		
+	} while (1);
+}
 int init_uart(const char * tty_path) /* done */
 {
 	const int fd = open(tty_path, O_RDWR & AT_SYMLINK_NOFOLLOW); // 0x102
@@ -105,7 +123,7 @@ int init_uart(const char * tty_path) /* done */
 	if (1 > uart_set(fd, 1, 8, 0, 1)) {
 		printf("%s:set error", tty_path);
 		// missing \n
-		fwrite("uart set failed!\n", 1, 0x11, stderr);
+		fwrite("uart set failed!\n", 1, 17, stderr);
 		// fputs would be a bit more elagant
 		// also two error messages
 		return -3;
@@ -218,6 +236,7 @@ void fan_ROC_RK3588_PC_init() /* done */
 float roc_rk3588_pc_average_temperature()
 {
 	// TODO
+	return 0.0f;
 }
 void* roc_rk3588_pc_fan_thread_daemon(void * arg) /* done */
 {
@@ -244,6 +263,7 @@ void fan_ITX_3588J_init() /* done */
 float itx_3588j_average_temperature()
 {
 	// TODO
+	return 0.0f;
 }
 void* itx_3588j_fan_thread_daemon(void * arg) /* done */
 {
@@ -275,6 +295,9 @@ void fan_CS_R1_3399JD4_MAIN_init() /* done */
 void* cs_r1_3399jd4_main_fan_thread_daemon(void * arg)
 {
 	// TODO
+	do {
+	
+	} while (1);
 }
 void set_CS_R1_3399JD4_MAIN_fan_pwm(char sth)
 {
@@ -288,6 +311,9 @@ void send_fan_cmd(char * cmd)
 void* fan_thread_rx(void * arg)
 {
 	// TODO
+	do {
+	
+	} while (1);
 }
 void* fan_thread_tx(void * arg)
 {
@@ -297,7 +323,7 @@ void* fan_thread_tx(void * arg)
 		send_fan_cmd((char *) arg + 0x24);
 	} while (1);
 }
-int fan_CS_R2_3399JD4_MAIN_init()
+int fan_CS_R2_3399JD4_MAIN_init(char * sth)
 {
 	int h4 = 0;
 	while (h4 < 3) {
@@ -474,12 +500,6 @@ int main(int argc, char **argv)
 			// also you could have used 1 or 2 pthreads
 			// you have 6 of which at max 2 are used
 			switch (board) {
-			case CS_R1_3399JD4: // 0
-				if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
-					puts("thread3 create error");
-					return -1;
-				}
-				break;
 			case CS_R2_3399JD4: // 1
 				if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
 					puts("thread1 create error");
@@ -487,6 +507,12 @@ int main(int argc, char **argv)
 				}
 				if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
 					puts("thread2 create error");
+					return -1;
+				}
+				break;
+			case CS_R1_3399JD4: // 0
+				if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+					puts("thread3 create error");
 					return -1;
 				}
 				break;
