@@ -148,6 +148,14 @@ void fan_ROC_RK3588S_PC_init() /* done */
 void set_ROC_RK3588S_PC_fan_pwm(char pwm) 
 {
 	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
+	switch (ROC_RK3588S_PC_VERSION) {
+	case 0:
+		break;
+	case 1:
+		break;
+	default:
+		break
+	}
 	printf("set_PWM: %d\npwm: %d\n", 0, pwm);
 	const int fd = open(pwm_p, O_RDWR & 0x900); // 0x902
 	if (fd < 1) {
