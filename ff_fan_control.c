@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -23,12 +24,14 @@ char PID_fan[40]; // unused till now
 void (*PID_fan_func)(int);
 char PID_debug_buff[1024]; // unused till now
 int ROC_RK3588S_PC_VERSION;
-int uart_head = 2863269888; // 0x8000aaaa; // unused till now
+uint32_t uart_head = 2863267968; // 0x8000aaaa; // unused till now
 int fan_switch = 1; // 0x01000000
 int global_pwm = 50; // 0x32000000
 char sth_pwm[16]; // not a real name
 
 bool completed; // unused till now
+// "local"
+// __func__ might be needed
 int temperature; // unused till now
 int count; // unused till now
 int tmp; // unused till now
@@ -96,6 +99,28 @@ int sys_uart_close(const int fd) /* done */ /* UNUSED - thank god */
 	return 0;
 	// is this really too complicated to remember?
 	// also you return 0 even on failure
+}
+int get_temperature(char * input) /* UNUSED - WTF! */
+{
+	const int fd = open(input, O_RDONLY);
+	if (fd < 0) {
+		printf("%s: open error!\n", input);
+		fprintf(stderr, "uart_open %s error\n", input);
+		// failed to adjust error message copy pasted from uart_open
+		perror("open:");
+		return -3;
+	}
+	char buf[24];
+	int ret;
+	if (read(fd, buf, 20) == 0) {
+		printf("read error: %s\n", input);
+		// uninitilized return
+	} else {
+		ret = atoi(buf);
+		printf("read temperature: %d\n", ret);
+	}
+	close(fd);
+	return ret;
 }
 int sys_uart_write(int fd, char * buf, int nbytes)
 {
