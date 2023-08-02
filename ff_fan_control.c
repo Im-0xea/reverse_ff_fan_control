@@ -24,10 +24,9 @@ char PID_fan[40]; // unused till now
 void (*PID_fan_func)(int);
 char PID_debug_buff[1024]; // unused till now
 int ROC_RK3588S_PC_VERSION;
-uint32_t uart_head = 2863267968; // 0x8000aaaa; // unused till now
+uint32_t uart_head = 2863267968; // 0x8000aaaa // unused till now
 int fan_switch = 1; // 0x01000000
 int global_pwm = 50; // 0x32000000
-char sth_pwm[16]; // not a real name
 
 bool completed; // unused till now
 // "local"
@@ -99,6 +98,12 @@ int sys_uart_close(const int fd) /* done */ /* UNUSED - thank god */
 	return 0;
 	// is this really too complicated to remember?
 	// also you return 0 even on failure
+}
+void fan_alarm(char * fan)
+{
+	printf("%s: speed error\n", fan + 16);
+	fan[10] |= 1;
+	fan[10] |= 2;
 }
 int get_temperature(char * input) /* UNUSED - WTF! */
 {
@@ -511,7 +516,7 @@ void set_fan_pwm(char pwm_ch) /* done */
 	global_pwm = pwm_ch;
 	switch (board) {
 	case CS_R2_3399JD4: // 1
-		set_CS_R2_3399JD4_MAIN_fan_pwm(sth_pwm, pwm_ch);
+		set_CS_R2_3399JD4_MAIN_fan_pwm(firefly_fan, pwm_ch);
 		break;
 	case CS_R1_3399JD4: // 0
 		set_CS_R1_3399JD4_MAIN_fan_pwm(pwm_ch);
