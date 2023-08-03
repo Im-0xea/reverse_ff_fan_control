@@ -332,7 +332,18 @@ void fan_ITX_3588J_init() /* done */
 }
 float itx_3588j_average_temperature()
 {
-	// TODO
+	FILE * tr_file = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
+	if (!tr_file) {
+		puts("no such file /sys/class/thermal/thermal_zone*/temp");
+		return 50.0f;
+		// see comment at roc_rk3588s_pc_average_temperature()
+	}
+	char buf[1000];
+	while (fgets(buf, 1000, tr_file) != 0) {
+		
+	}
+	printf("sum = %f\n", 0.0f);
+	fclose(tr_file);
 	return 0.0f;
 }
 void* itx_3588j_fan_thread_daemon(void * arg) /* done */
@@ -409,21 +420,28 @@ void* fan_thread_rx(void * arg)
 	
 	} while (1);
 }
-void* fan_thread_tx(void * arg)
+void* fan_thread_tx(void * arg) /* done */
 {
+	// there is a bunch of stack protector/guard schnick here
+	// I don't think im missing anything though
 	do {
 		send_fan_cmd((char *) arg);
 		usleep(500000);
-		send_fan_cmd((char *) arg + 0x24);
+		send_fan_cmd((char *) arg + 36);
 	} while (1);
 }
 int fan_CS_R2_3399JD4_MAIN_init(char * sth)
 {
 	int h4 = 0;
-	while (h4 < 3) {
-		//TODO
+	while (h4 <= 3) {
+		sth[h4] = (unsigned char) uart_head[h4];
+		sth[h4 + 4] = (unsigned char) uart_end[h4];
+		sth[h4 + 8] = (unsigned char) uart_cmd[h4];
+		sth[h4 + 0x24] = (unsigned char) uart_head[h4];
+		sth[h4 + 0x28] = (unsigned char) uart_end[h4];
+		sth[h4 + 0x2c] = (unsigned char) uart_cmd[h4];
 	}
-	init_uart("/dev/ttyS0");
+	sth[0xc] = init_uart("/dev/ttyS0");
 	init_uart("/dev/ttyS4");
 	return 0;
 }
