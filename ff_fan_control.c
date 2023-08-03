@@ -434,12 +434,12 @@ int fan_CS_R2_3399JD4_MAIN_init(char * sth)
 {
 	int h4 = 0;
 	while (h4 <= 3) {
-		sth[h4] = (unsigned char) uart_head[h4];
-		sth[h4 + 4] = (unsigned char) uart_end[h4];
-		sth[h4 + 8] = (unsigned char) uart_cmd[h4];
-		sth[h4 + 0x24] = (unsigned char) uart_head[h4];
-		sth[h4 + 0x28] = (unsigned char) uart_end[h4];
-		sth[h4 + 0x2c] = (unsigned char) uart_cmd[h4];
+		sth[h4] = (unsigned char) (&uart_head)[h4];
+		sth[h4 + 4] = (unsigned char) (&uart_end)[h4];
+		sth[h4 + 8] = (unsigned char) (&uart_cmd)[h4];
+		sth[h4 + 0x24] = (unsigned char) (&uart_head)[h4];
+		sth[h4 + 0x28] = (unsigned char) (&uart_end)[h4];
+		sth[h4 + 0x2c] = (unsigned char) (&uart_cmd)[h4];
 	}
 	sth[0xc] = init_uart("/dev/ttyS0");
 	init_uart("/dev/ttyS4");
