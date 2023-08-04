@@ -127,6 +127,37 @@ int get_temperature(char * input) /* UNUSED - WTF! */
 	close(fd);
 	return ret;
 }
+int sys_uart_read(int fd, char * buf, int nbytes, int x3)
+{
+	fd_set tl_set; //char slt_str[64];
+	int rbytes = 0;
+	do {
+		struct timeval tv = {
+			.tv_sec = x3 / 1000,
+			.tv_usec = (x3 % 1000) * 1000
+		};
+		int slt = select(fd + 1, &tl_set, NULL, NULL, &tv);
+		if (slt < 0) {
+			perror("sys_uart_read:select");
+			break;
+		}
+		if (!slt) break;
+		int tmp = read(fd, buf + rbytes, nbytes - rbytes);
+		if (tmp < 0) {
+			if (errno != EINTR) {
+				perror("sys_uart_write:read");
+				break;
+			}
+			tmp = 0;
+		} else if (tmp == 0) {
+			tcflush(fd, TCIFLUSH);
+			return -3;
+		}
+		rbytes += tmp;
+	} while (rbytes != nbytes);
+	tcflush(fd, TCIFLUSH);
+	return rbytes;
+}
 int sys_uart_write(int fd, char * buf, int nbytes)
 {
 	do {
@@ -415,9 +446,15 @@ void send_fan_cmd(char * cmd)
 }
 void* fan_thread_rx(void * arg)
 {
+	char *h140;
+	int h144 = 0;
 	// TODO
 	do {
-	
+		h144 = 0;
+		if (global_debug) {
+			fprintf(stderr, "%s: sys_uart_read start\n", h140);
+		}
+		//sys_uart_read();
 	} while (1);
 }
 void* fan_thread_tx(void * arg) /* done */
