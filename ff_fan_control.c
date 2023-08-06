@@ -257,8 +257,7 @@ void set_ROC_RK3588S_PC_fan_pwm(char pwm)
 }
 float roc_rk3588s_pc_average_temperature()
 {
-	int h14 = 0;
-	float h18 = 0;
+	float miau[74];
 	FILE * temp_file = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
 	if (temp_file == 0) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
@@ -267,20 +266,25 @@ float roc_rk3588s_pc_average_temperature()
 		// just returning 50 risks frying your board and leaves the issue undiscovered
 	}
 	char buf[1000];
+	int count = 0;
+	float ret;
 	// this read will never return more than 32 chars
 	while (!fgets(buf, 1000, temp_file)) {
 		const int temp_l = strlen(buf);
 		buf[temp_l - 1] = 0;
-		h18 = atof(buf); // some ops might still be here
-		printf("%f\n", h18);
-		// something more here
+		float temp = atof(buf); // some ops might still be here
+		miau[count] = temp;
+		printf("%f\n", miau[count]);
+		miau[count] /= 1000.0f;
+		ret += miau[count];
+		++count;
 	}
-	if (h14 < 1) {
-		// something
+	if (1 < count) {
+		ret = (ret  - miau[count]) / count;
 	}
-	printf("sum = %f\n", h18);
+	printf("sum = %f\n", *miau);
 	fclose(temp_file);
-	return h18;
+	return ret;
 }
 void* roc_rk3588s_pc_fan_thread_daemon(void * arg) /* done */
 {
