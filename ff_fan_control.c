@@ -11,15 +11,13 @@
 #include <pthread.h>
 #include <unistd.h>
 
-enum sbc {
+enum {
 	CS_R1_3399JD4 = 0,
 	CS_R2_3399JD4 = 1,
 	ROC_RK3588S_PC = 2,
 	ITX_3588J = 3,
 	ROC_RK3588_PC = 4
-};
-
-enum sbc board;
+} board;
 char PID_fan[40]; // unused till now
 void (*PID_fan_func)(int);
 char PID_debug_buff[1024]; // unused till now
