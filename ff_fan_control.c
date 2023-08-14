@@ -112,21 +112,21 @@ void fan_alarm(char *fan) /* done */
 	// I don't get it, so I can't complain
 }
 
-int get_temperature(char *input) /* UNUSED - WTF! */
+int get_temperature(char *path, long something) /* done */ /* UNUSED */
 {
-	const int fd = open(input, O_RDONLY);
+	const int fd = open(path, O_RDONLY);
 	if (fd < 0) {
-		printf("%s: open error!\n", input);
-		fprintf(stderr, "uart_open %s error\n", input);
+		printf("%s:open error!\n", path);
+		fprintf(stderr, "uart_open %s error\n", path);
 		// failed to adjust error message copy pasted from uart_open
 		perror("open:");
 		return -3;
 	}
-	char buf[24];
+	char buf[20]; // presumeably 4 bytes padding
 	int ret;
 	if (read(fd, buf, 20) == 0) {
-		printf("read error: %s\n", input);
-		// uninitilized return
+		printf("read error: %s\n", path);
+		// return uninitilized
 	} else {
 		ret = atoi(buf);
 		printf("read temperature: %d\n", ret);
@@ -242,13 +242,14 @@ void fan_ROC_RK3588S_PC_init() /* done */
 	// also you should check if your write was actually successful
 }
 
-void set_ROC_RK3588S_PC_fan_pwm(char pwm) 
+void set_ROC_RK3588S_PC_fan_pwm(char pwm)
 {
-	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
 	int rpwm = 0;
+	char *nbytes = NULL;
+	// var_0h zeroed
 	switch (ROC_RK3588S_PC_VERSION) {
 	case 0:
-		rpwm = 0xff - (pwm * 0x100 - pwm) / 100;
+		rpwm = (((((pwm << 8) - pwm) * 0x51eb851f >> 20) >> 5) >> 0x1f);
 		break;
 	case 1:
 		rpwm = (pwm * 0x100  - pwm) / 100;
@@ -257,9 +258,9 @@ void set_ROC_RK3588S_PC_fan_pwm(char pwm)
 		break;
 	}
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	const int fd = open(pwm_p, O_RDWR & 0x900); // 0x902
+	const int fd = open("/sys/class/hwmon/hwmon1/pwm1", O_RDWR & 0x900); // 0x902
 	if (fd < 1) {
-		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", pwm_p);
+		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", "/sys/class/hwmon/hwmon1/pwm1");
 		// at this point you should be returning
 		// instead you are writting and closing a invalid fd
 	}
