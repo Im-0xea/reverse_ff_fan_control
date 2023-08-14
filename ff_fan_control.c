@@ -18,6 +18,7 @@ enum {
 	ITX_3588J = 3,
 	ROC_RK3588_PC = 4
 } board;
+
 char PID_fan[40]; // unused till now
 void (*PID_fan_func)(int);
 char PID_debug_buff[1024]; // unused till now
@@ -524,19 +525,30 @@ void *fan_thread_tx(void *arg) /* done */
 	} while (1);
 }
 
-int fan_CS_R2_3399JD4_MAIN_init(char *sth)
+int fan_CS_R2_3399JD4_MAIN_init(char *sth) /* done - although the last part is a bit too strange */
 {
+	// x19 -> 10h seams like a stack check fail
+	// although it is not, not getting used either though
 	int h4 = 0;
+	
 	while (h4 <= 3) {
 		sth[h4] = (unsigned char) (&uart_head)[h4];
 		sth[h4 + 4] = (unsigned char) (&uart_end)[h4];
 		sth[h4 + 8] = (unsigned char) (&uart_cmd)[h4];
-		sth[h4 + 0x24] = (unsigned char) (&uart_head)[h4];
-		sth[h4 + 0x28] = (unsigned char) (&uart_end)[h4];
-		sth[h4 + 0x2c] = (unsigned char) (&uart_cmd)[h4];
+		sth[h4 + 36] = (unsigned char) (&uart_head)[h4];
+		sth[h4 + 40] = (unsigned char) (&uart_end)[h4];
+		sth[h4 + 44] = (unsigned char) (&uart_cmd)[h4];
+		++h4;
 	}
 	sth[12] = init_uart("/dev/ttyS0");
-	init_uart("/dev/ttyS4");
+	const char what[] = "/dev/ttyS0";
+	sth[10] = what[0];
+	sth[10 + 7] = what[7];
+	// sth[36] something -> x19
+	sth[36 + 12] = init_uart("/dev/ttyS4");
+	const char what2[] = "/dev/ttyS4";
+	sth[52] = what2[0];
+	sth[52 + 7] = what2[7];
 	return 0;
 }
 
