@@ -168,6 +168,7 @@ int sys_uart_read(int fd, char *buf, int nbytes, int x3)
 }
 
 int sys_uart_write(int fd, char *buf, size_t bytes) /* done */
+        //           long x3 /* unused */, long ch3 /* unused */, long h48 /* unused */)
 {
 	size_t nbytes = bytes;
 	while (nbytes != 0) {
@@ -477,9 +478,17 @@ void set_CS_R1_3399JD4_MAIN_fan_pwm(char pwm)
 }
 
 // -----------------------------------------
-void send_fan_cmd(char *cmd)
+void send_fan_cmd(char *cmd) /* done */
 {
-	// TODO
+	char *format = cmd;
+	long h0 = (long) format[0xc];
+	// seams like you forgot to use it
+	if (sys_uart_write(format[0xc], format, 4 /*, 0x2710 unused */) < 0)
+		printf("%s: error\n", format + 16);
+	if (sys_uart_write(format[0xc], format + 8, 4 /*, 0x2710 unused */) < 0)
+		printf("%s: error\n", format + 16);
+	if (sys_uart_write(format[0xc], format + 4, 4 /*, 0x2710 unused */) < 0)
+		printf("%s: error\n", format + 16);
 }
 
 void *fan_thread_rx(void *arg)
