@@ -51,7 +51,7 @@ void init_time() /* done */
 	struct itimerval itv = {
 		.it_interval = {
 			.tv_sec = 0, // sp+0x30
-			.tv_usec = PID_fan[0x20] // sp+0x28
+			.tv_usec = PID_fan[32] // sp+0x28
 		},
 		.it_value = {
 			.tv_sec = 5, // sp+0x20
@@ -96,7 +96,7 @@ int uart_set(int fd, int x1, int x2, int x3, int x4)
 	return 0;
 }
 
-int sys_uart_close(const int fd) /* done */ /* UNUSED - thank god */
+int sys_uart_close(const int fd) /* done */ /* unused */
 {
 	close(fd);
 	return 0;
@@ -112,7 +112,7 @@ void fan_alarm(char *fan) /* done */
 	// I don't get it, so I can't complain
 }
 
-int get_temperature(char *path, long something) /* done */ /* UNUSED */
+int get_temperature(char *path, long something) /* done */ /* unused */
 {
 	const int fd = open(path, O_RDONLY);
 	if (fd < 0) {
@@ -226,9 +226,9 @@ int get_ROC_RK3588S_PC_version() /* done */
 	fclose(iv);
 	// should be pclose()
 	if (volt >= 0) {
-		if (volt <= 0x64)
+		if (volt <= 100)
 			return 0;
-		if (volt >= 0x79d && volt <= 0x866)
+		if (volt >= 1949 && volt <= 2150)
 			return 1; 
 	}
 	return -1;
@@ -253,7 +253,7 @@ void set_ROC_RK3588S_PC_fan_pwm(char pwm)
 		rpwm = (((((pwm << 8) - pwm) * 0x51eb851f >> 20) >> 5) >> 0x1f);
 		break;
 	case 1:
-		rpwm = (pwm * 0x100  - pwm) / 100;
+		rpwm = (pwm * 0x100  - pwm) / 100; // probably wrong
 		break;
 	default:
 		break;
@@ -265,7 +265,7 @@ void set_ROC_RK3588S_PC_fan_pwm(char pwm)
 		// at this point you should be returning
 		// instead you are writting and closing a invalid fd
 	}
-	char buf[0x18];
+	char buf[24];
 	sprintf(buf, "%d", rpwm);
 	write(fd, buf, strlen(buf));
 	// good practice(and compiler warnings) would demand another fail check here
@@ -368,17 +368,17 @@ void *roc_rk3588_pc_fan_thread_daemon(void *arg) /* done */
 	} while (1);
 }
 
-void set_ROC_RK3588_PC_fan_pwm(char pwm) 
+void set_ROC_RK3588_PC_fan_pwm(char pwm)
 {
-	const char pwm_p[] = "/sys/class/hwmon/hwmon1/pwm1";
+	int h24 = 0;
 	const int rpwm = (pwm * 0x100 - pwm) / 100;
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	const int fd = open(pwm_p, O_RDWR & 0x900); // 0x902
+	const int fd = open("/sys/class/hwmon/hwmon1/pwm1", O_RDWR & 0x900); // 0x902
 	if (fd < 1) {
-		printf("set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n", pwm_p);
+		printf("set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n", "/sys/class/hwmon/hwmon1/pwm1");
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
-	char buf[0x18];
+	char buf[24];
 	sprintf(buf, "%d", rpwm);
 	write(fd, buf, strlen(buf));
 	// read comments set_ROC_RK3588S_PC_fan_pwm
@@ -433,7 +433,7 @@ void set_ITX_3588J_fan_pwm(char pwm)
 		printf("set_ITX_3588J_fan_pwm: Can not open %s file\n", pwm_p);
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
-	char buf[0x18];
+	char buf[24];
 	sprintf(buf, "%d", rpwm);
 	write(fd, buf, strlen(buf));
 	// read comments set_ROC_RK3588S_PC_fan_pwm
@@ -452,27 +452,37 @@ void fan_CS_R1_3399JD4_MAIN_init() /* done */
 	// 5 leaked file * 
 }
 
-void* cs_r1_3399jd4_main_fan_thread_daemon(void *arg)
+float cs_r1_3399jd4_main_average_temperature()
 {
 	// TODO
+}
+
+void* cs_r1_3399jd4_main_fan_thread_daemon(void *arg) /* done */
+{
+	int i = 0;
 	do {
-	
+		usleep(500000);
+		if (++i != 2) continue;
+		i = 0;
+		global_temperature = cs_r1_3399jd4_main_average_temperature();
+		global_temperature *= 1000.0f;
 	} while (1);
 }
 
-void set_CS_R1_3399JD4_MAIN_fan_pwm(char pwm) 
+void set_CS_R1_3399JD4_MAIN_fan_pwm(char pwm) /* done */
 {
-	const char pwm_p[] = "/sys/class/pwm/pwmchip0/pwm0/duty_cycle";
-	const int rpwm = (pwm - 0x32) * 800 + 59000;
-	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	const int fd = open(pwm_p, O_RDWR & 0x900); // 0x902
+	int rpwm = ((pwm - 0x32) * 800) + 59000;
+	long h0 = 0;
+	char nbuf[20] = "\0";
+	printf("set_PWM: %d\n pwm: %d\n", rpwm, pwm);
+	int fd = open("/sys/class/pwm/pwmchip0/pwm0/duty_cycle", O_RDWR & 0x900); // 0x902
 	if (fd < 1) {
-		printf("set_CS_R1_3399JD4_MAIN_fan_pwm: Can not open %s file\n", pwm_p);
+		printf("set_CS_R1_3399JD4_MAIN_fan_pwm: Can not open %s file\n", "/sys/class/pwm/pwmchip0/pwm0/duty/cycle");
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
-	char buf[0x18];
-	sprintf(buf, "%d", rpwm);
-	write(fd, buf, strlen(buf));
+	sprintf(nbuf, "%d", rpwm);
+	int h2 = write(fd, nbuf, strlen(nbuf));
+	// unused it seams
 	// read comments set_ROC_RK3588S_PC_fan_pwm
 	close(fd);
 }
@@ -481,13 +491,13 @@ void set_CS_R1_3399JD4_MAIN_fan_pwm(char pwm)
 void send_fan_cmd(char *cmd) /* done */
 {
 	char *format = cmd;
-	long h0 = (long) format[0xc];
+	long h0 = (long) format[12];
 	// seams like you forgot to use it
-	if (sys_uart_write(format[0xc], format, 4 /*, 0x2710 unused */) < 0)
+	if (sys_uart_write(format[12], format, 4 /*, 0x2710 unused */) < 0)
 		printf("%s: error\n", format + 16);
-	if (sys_uart_write(format[0xc], format + 8, 4 /*, 0x2710 unused */) < 0)
+	if (sys_uart_write(format[12], format + 8, 4 /*, 0x2710 unused */) < 0)
 		printf("%s: error\n", format + 16);
-	if (sys_uart_write(format[0xc], format + 4, 4 /*, 0x2710 unused */) < 0)
+	if (sys_uart_write(format[12], format + 4, 4 /*, 0x2710 unused */) < 0)
 		printf("%s: error\n", format + 16);
 }
 
@@ -527,7 +537,7 @@ int fan_CS_R2_3399JD4_MAIN_init(char *sth)
 		sth[h4 + 0x28] = (unsigned char) (&uart_end)[h4];
 		sth[h4 + 0x2c] = (unsigned char) (&uart_cmd)[h4];
 	}
-	sth[0xc] = init_uart("/dev/ttyS0");
+	sth[12] = init_uart("/dev/ttyS0");
 	init_uart("/dev/ttyS4");
 	return 0;
 }
@@ -536,25 +546,25 @@ void set_CS_R2_3399JD4_MAIN_fan_pwm(char *pwm, int sth) /* done */
 {
 	char h1 = 0;
 	char ch;
-	if (sth <= 0x13) {
-		if (sth <= 0x9)
-			h1 = fan_switch <= 0 ? 0x2a : 0x15;
+	if (sth <= 19) {
+		if (sth <= 9)
+			h1 = fan_switch <= 0 ? 42 : 21;
 		ch = '0';
-	} else if (sth <= 0x27) {
-		if (sth <= 0x1d)
-			h1 = fan_switch <= 0 ? 0x2a : 0x15;
+	} else if (sth <= 39) {
+		if (sth <= 29)
+			h1 = fan_switch <= 0 ? 42 : 21;
 		ch = '1';
-	} else if (sth <= 0x3b) {
-		if (sth <= 0x31)
-			h1 = fan_switch <= 0 ? 0x2a : 0x15;
+	} else if (sth <= 59) {
+		if (sth <= 49)
+			h1 = fan_switch <= 0 ? 42 : 21;
 		ch = '2';
-	} else if (sth <= 0x4f) {
-		if (sth <= 0x45)
-			h1 = fan_switch <= 0 ? 0x2a : 0x15;
+	} else if (sth <= 79) {
+		if (sth <= 69)
+			h1 = fan_switch <= 0 ? 42 : 21;
 		ch = '3';
 	} else {
-		if (sth <= 0x59)
-			h1 = fan_switch <= 0 ? 0x2a : 0x15;
+		if (sth <= 89)
+			h1 = fan_switch <= 0 ? 42 : 21;
 		ch = '4';
 	}
 	pwm[9] = h1;
