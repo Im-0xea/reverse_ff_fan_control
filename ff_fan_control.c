@@ -242,7 +242,7 @@ void fan_ROC_RK3588S_PC_init() /* done */
 	// also you should check if your write was actually successful
 }
 
-void set_ROC_RK3588S_PC_fan_pwm(char pwm)
+void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm)
 {
 	int rpwm = 0;
 	char *nbytes = NULL;
@@ -328,31 +328,35 @@ void fan_ROC_RK3588_PC_init() /* done */
 
 float roc_rk3588_pc_average_temperature()
 {
-	int h14 = 0;
-	float h18 = 0;
-	FILE * temp_file = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
-	if (temp_file == 0) {
+	char str[1000];
+	float s[73];
+	memset(s, 0, 292);
+	float ret = 0;
+	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
+	if (stream == 0) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
-		// we don't have a read, either through a misconfigured kernel or handware issues
-		// just returning 50 risks frying your board and leaves the issue undiscovered
+		// see comment on rk3588s average temperature
 	}
-	char buf[1000];
-	// this read will never return more than 32 chars
-	while (!fgets(buf, 1000, temp_file)) {
-		const int temp_l = strlen(buf);
-		buf[temp_l - 1] = 0;
-		h18 = atof(buf); // some ops might still be here
-		printf("%f\n", h18);
-		// something more here
+	int count = 0;
+	// see comment on rk3588s average temperature
+	while (fgets(str, 1000, stream)) {
+		int temp_l = strlen(str);
+		str[temp_l - 1] = 0;
+		s[count] = atof(str); // << 2 because of float size
+		printf("%f\n", s[count]);
+		s[count] /= 1000.0f; // 0x44fa0000
+		ret += s[count];
+		++count;
 	}
-	if (h14 < 1) {
-		// something
+	if (count > 1) {
+		ret -= s[count];
+		ret /= count;
 	}
-	printf("sum = %f\n", h18);
-	fclose(temp_file);
-	// should be pclose()
-	return h18;
+	printf("sum = %f\n", ret);
+	fclose(stream);
+	// see comment on rk3588s average temperature
+	return ret;
 }
 
 void *roc_rk3588_pc_fan_thread_daemon(void *arg) /* done */
@@ -368,7 +372,7 @@ void *roc_rk3588_pc_fan_thread_daemon(void *arg) /* done */
 	} while (1);
 }
 
-void set_ROC_RK3588_PC_fan_pwm(char pwm)
+void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm)
 {
 	int h24 = 0;
 	const int rpwm = (pwm * 0x100 - pwm) / 100;
@@ -394,20 +398,35 @@ void fan_ITX_3588J_init() /* done */
 
 float itx_3588j_average_temperature()
 {
-	FILE * tr_file = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
-	if (!tr_file) {
+	char str[1000];
+	float s[73];
+	memset(s, 0, 292);
+	float ret = 0;
+	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
+	if (stream == 0) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
-		return 50.0f;
-		// see comment at roc_rk3588s_pc_average_temperature()
+		return 50.0f; // 0x4248000 in IEEE-754
+		// see comment on rk3588s average temperature
 	}
-	char buf[1000];
-	while (fgets(buf, 1000, tr_file) != 0) {
-		
+	int count = 0;
+	// see comment on rk3588s average temperature
+	while (fgets(str, 1000, stream)) {
+		int temp_l = strlen(str);
+		str[temp_l - 1] = 0;
+		s[count] = atof(str); // << 2 because of float size
+		printf("%f\n", s[count]);
+		s[count] /= 1000.0f; // 0x44fa0000
+		ret += s[count];
+		++count;
 	}
-	printf("sum = %f\n", 0.0f);
-	fclose(tr_file);
-	// should be pclose()
-	return 0.0f;
+	if (count > 1) {
+		ret -= s[count];
+		ret /= count;
+	}
+	printf("sum = %f\n", ret);
+	fclose(stream);
+	// see comment on rk3588s average temperature
+	return ret;
 }
 
 void* itx_3588j_fan_thread_daemon(void *arg) /* done */
@@ -423,21 +442,23 @@ void* itx_3588j_fan_thread_daemon(void *arg) /* done */
 	} while (1);
 }
 
-void set_ITX_3588J_fan_pwm(char pwm) 
+void set_ITX_3588J_fan_pwm(char pwm) /* done */
 {
-	const char pwm_p[] = "/sys/class/hwmon/hwmon0/pwm1";
-	const int rpwm = (pwm * 0x100 - pwm) / 100;
+	//const uint64_t tmp = (pwm << 8) - pwm;
+	//const uint64_t rpwm = (((tmp * 0x51eb851f) >> 0x20) >> 5) - (tmp >> 0x1f);
+	const int rpwm = pwm * (float) ((1 / 3) + 2);
+
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	const int fd = open(pwm_p, O_RDWR & 0x900); // 0x902
-	if (fd < 1) {
-		printf("set_ITX_3588J_fan_pwm: Can not open %s file\n", pwm_p);
+	const int fd = open("/sys/class/hwmon/hwmon0/pwm1", O_RDWR);
+	if (fd <= 0) {
+		printf("set_ITX_3588J_fan_pwm: Can not open %s file\n", "/sys/class/hwmon/hwmon0/pwm1");
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
-	char buf[24];
+	char buf[20]; // guessing 4 bytes padding
 	sprintf(buf, "%d", rpwm);
 	write(fd, buf, strlen(buf));
-	// read comments set_ROC_RK3588S_PC_fan_pwm
 	close(fd);
+	// read comments set_ROC_RK3588S_PC_fan_pwm
 }
 
 // ----------------------------------------
@@ -454,7 +475,35 @@ void fan_CS_R1_3399JD4_MAIN_init() /* done */
 
 float cs_r1_3399jd4_main_average_temperature()
 {
-	// TODO
+	char str[1000];
+	float s[73];
+	memset(s, 0, 292);
+	float ret = 0;
+	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
+	if (stream == 0) {
+		puts("no such file /sys/class/thermal/thermal_zone*/temp");
+		return 50.0f; // 0x4248000 in IEEE-754
+		// see comment on rk3588s average temperature
+	}
+	int count = 0;
+	// see comment on rk3588s average temperature
+	while (fgets(str, 1000, stream)) {
+		int temp_l = strlen(str);
+		str[temp_l - 1] = 0;
+		s[count] = atof(str); // << 2 because of float size
+		printf("%f\n", s[count]);
+		s[count] /= 1000.0f; // 0x44fa0000
+		ret += s[count];
+		++count;
+	}
+	if (count > 1) {
+		ret -= s[count];
+		ret /= count;
+	}
+	printf("sum = %f\n", ret);
+	fclose(stream);
+	// see comment on rk3588s average temperature
+	return ret;
 }
 
 void* cs_r1_3399jd4_main_fan_thread_daemon(void *arg) /* done */
@@ -469,7 +518,7 @@ void* cs_r1_3399jd4_main_fan_thread_daemon(void *arg) /* done */
 	} while (1);
 }
 
-void set_CS_R1_3399JD4_MAIN_fan_pwm(char pwm) /* done */
+void set_CS_R1_3399JD4_MAIN_fan_pwm(uint8_t pwm) /* done */
 {
 	int rpwm = ((pwm - 0x32) * 800) + 59000;
 	long h0 = 0;
@@ -640,7 +689,7 @@ void fan_init() /* done */
 	sleep(2);
 }
 
-void set_fan_pwm(char pwm_ch) /* done */
+void set_fan_pwm(uint8_t pwm_ch) /* done */
 {
 	global_pwm = pwm_ch;
 	switch (board) {
