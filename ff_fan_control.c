@@ -19,11 +19,11 @@ enum {
 	ROC_RK3588_PC = 4
 } board;
 
-char PID_fan[40]; // unused till now
+char PID_fan[40];
 void (*PID_fan_func)(int);
 char PID_debug_buff[1024]; // unused till now
 int ROC_RK3588S_PC_VERSION;
-uint32_t uart_head = 2863267968; // 0x8000aaaa // unused till now
+uint32_t uart_head = 2863267968; // 0x8000aaaa
 int fan_switch = 1; // 0x01000000
 int global_pwm = 50; // 0x32000000
 
@@ -167,7 +167,7 @@ int sys_uart_read(int fd, char *buf, int nbytes, int x3)
 }
 
 int sys_uart_write(int fd, char *buf, size_t bytes) /* done */
-        //           long x3 /* unused */, long ch3 /* unused */, long h48 /* unused */)
+                 //long x3 /* unused */, long ch3 /* unused */, long h48 /* unused */)
 {
 	size_t nbytes = bytes;
 	while (nbytes != 0) {
@@ -272,35 +272,36 @@ void set_ROC_RK3588S_PC_fan_pwm(char pwm)
 	close(fd);
 }
 
-float roc_rk3588s_pc_average_temperature()
+float roc_rk3588s_pc_average_temperature() /* done */
 {
-	float miau[74];
-	FILE * temp_file = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
-	if (temp_file == 0) {
+	char str[1000];
+	float s[73];
+	memset(s, 0, 292);
+	float ret = 0;
+	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
+	if (stream == 0) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
 		// we don't have a read, either through a misconfigured kernel or handware issues
 		// just returning 50 risks frying your board and leaves the issue undiscovered
 	}
-	char buf[1000];
 	int count = 0;
-	float ret;
 	// this read will never return more than 32 chars
-	while (!fgets(buf, 1000, temp_file)) {
-		const int temp_l = strlen(buf);
-		buf[temp_l - 1] = 0;
-		float temp = atof(buf); // some ops might still be here
-		miau[count] = temp;
-		printf("%f\n", miau[count]);
-		miau[count] /= 1000.0f;
-		ret += miau[count];
+	while (fgets(str, 1000, stream)) {
+		int temp_l = strlen(str);
+		str[temp_l - 1] = 0;
+		s[count] = atof(str); // << 2 because of float size
+		printf("%f\n", s[count]);
+		s[count] /= 1000.0f; // 0x44fa0000
+		ret += s[count];
 		++count;
 	}
-	if (1 < count) {
-		ret = (ret  - miau[count]) / count;
+	if (count > 1) {
+		ret -= s[count];
+		ret /= count;
 	}
-	printf("sum = %f\n", *miau);
-	fclose(temp_file);
+	printf("sum = %f\n", ret);
+	fclose(stream);
 	// should be pclose()
 	return ret;
 }

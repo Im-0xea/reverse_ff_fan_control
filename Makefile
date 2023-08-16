@@ -9,3 +9,6 @@ reversed:
 
 nextgen:
 	@echo maybe soon
+
+clean:
+	rm ff_fan_control
