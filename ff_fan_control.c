@@ -136,8 +136,8 @@ int get_temperature(char *path, long something) /* done */ /* unused */
 
 int sys_uart_read(int fd, char *buf, int nbytes, int x3)
 {
-	fd_set tl_set; //char slt_str[64];
 	int rbytes = 0;
+	fd_set tl_set; //char slt_str[64];
 	do {
 		struct timeval tv = {
 			.tv_sec = x3 / 1000,
@@ -167,7 +167,7 @@ int sys_uart_read(int fd, char *buf, int nbytes, int x3)
 }
 
 int sys_uart_write(int fd, char *buf, size_t bytes) /* done */
-                 //long x3 /* unused */, long ch3 /* unused */, long h48 /* unused */)
+                 //long x3 /* unused */)
 {
 	size_t nbytes = bytes;
 	while (nbytes != 0) {
@@ -242,33 +242,37 @@ void fan_ROC_RK3588S_PC_init() /* done */
 	// also you should check if your write was actually successful
 }
 
-void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm)
+void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) /* done */
 {
 	int rpwm = 0;
-	char *nbytes = NULL;
-	// var_0h zeroed
+	char str[10] = "\0";
+	int unused = 0;
+	// while radare saw it as the 16th place in str being zeroed
+	// I think its more likely that this is a var they never used and there fore was interpreted as str + 16
 	switch (ROC_RK3588S_PC_VERSION) {
 	case 0:
-		rpwm = (((((pwm << 8) - pwm) * 0x51eb851f >> 20) >> 5) >> 0x1f);
+		rpwm = pwm * (float) ((1 / 3) + 2);
 		break;
 	case 1:
-		rpwm = (pwm * 0x100  - pwm) / 100; // probably wrong
+		rpwm = pwm * (float) ((1 / 3) + 2);
 		break;
 	default:
 		break;
 	}
+	// congratulations, your switch has a duplicate case
+	// aaaand will not set rpwm if the version is unknown
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	const int fd = open("/sys/class/hwmon/hwmon1/pwm1", O_RDWR & 0x900); // 0x902
-	if (fd < 1) {
+	int fd = open("/sys/class/hwmon/hwmon1/pwm1", O_RDWR & 0x900); // 0x902
+	if (fd <= 0) {
 		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", "/sys/class/hwmon/hwmon1/pwm1");
 		// at this point you should be returning
 		// instead you are writting and closing a invalid fd
 	}
-	char buf[24];
-	sprintf(buf, "%d", rpwm);
-	write(fd, buf, strlen(buf));
+	sprintf(str, "%d", rpwm);
+	int res = write(fd, str, strlen(str));
 	// good practice(and compiler warnings) would demand another fail check here
 	// especially because this is a write which is likely to fail
+	// also this variable seams to stay unused
 	close(fd);
 }
 
@@ -372,19 +376,21 @@ void *roc_rk3588_pc_fan_thread_daemon(void *arg) /* done */
 	} while (1);
 }
 
-void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm)
+void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) /* done */
 {
-	int h24 = 0;
-	const int rpwm = (pwm * 0x100 - pwm) / 100;
+	int rpwm = 0;
+	char str[10] = "\0";
+	int unused = 0;
+	// read comments set_ROC_RK3588S_PC_fan_pwm
+	rpwm = pwm * (float) ((1 / 3) + 2);
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	const int fd = open("/sys/class/hwmon/hwmon1/pwm1", O_RDWR & 0x900); // 0x902
-	if (fd < 1) {
+	int fd = open("/sys/class/hwmon/hwmon1/pwm1", O_RDWR & 0x900); // 0x902
+	if (fd <= 0) {
 		printf("set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n", "/sys/class/hwmon/hwmon1/pwm1");
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
-	char buf[24];
-	sprintf(buf, "%d", rpwm);
-	write(fd, buf, strlen(buf));
+	sprintf(str, "%d", rpwm);
+	int res = write(fd, str, strlen(str));
 	// read comments set_ROC_RK3588S_PC_fan_pwm
 	close(fd);
 }
