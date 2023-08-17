@@ -19,7 +19,7 @@ enum {
 	ROC_RK3588_PC = 4
 } board;
 
-char PID_fan[40];
+float PID_fan[10];
 void (*PID_fan_func)(int);
 char PID_debug_buff[1024]; // unused till now
 int ROC_RK3588S_PC_VERSION;
@@ -50,7 +50,7 @@ void init_time() /* done */
 	struct itimerval itv = {
 		.it_interval = {
 			.tv_sec = 0, // sp+0x30
-			.tv_usec = PID_fan[32] // sp+0x28
+			.tv_usec = PID_fan[32 / 4] // sp+0x28
 		},
 		.it_value = {
 			.tv_sec = 5, // sp+0x20
@@ -242,6 +242,7 @@ void fan_ROC_RK3588S_PC_init() /* done */
 	// also you should check if your write was actually successful
 }
 
+#define RK3588_PWM "/sys/class/hwmon/hwmon1/pwm1"
 void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) /* done */
 {
 	int rpwm = 0;
@@ -262,9 +263,9 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) /* done */
 	// congratulations, your switch has a duplicate case
 	// aaaand will not set rpwm if the version is unknown
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	int fd = open("/sys/class/hwmon/hwmon1/pwm1", O_RDWR & 0x900); // 0x902
+	int fd = open(RK3588_PWM, O_RDWR & 0x900); // 0x902
 	if (fd <= 0) {
-		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", "/sys/class/hwmon/hwmon1/pwm1");
+		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", RK3588_PWM);
 		// at this point you should be returning
 		// instead you are writting and closing a invalid fd
 	}
@@ -384,9 +385,9 @@ void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) /* done */
 	// read comments set_ROC_RK3588S_PC_fan_pwm
 	rpwm = pwm * (float) ((1 / 3) + 2);
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	int fd = open("/sys/class/hwmon/hwmon1/pwm1", O_RDWR & 0x900); // 0x902
+	int fd = open(RK3588_PWM, O_RDWR & 0x900); // 0x902
 	if (fd <= 0) {
-		printf("set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n", "/sys/class/hwmon/hwmon1/pwm1");
+		printf("set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n", RK3588_PWM);
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
 	sprintf(str, "%d", rpwm);
@@ -448,6 +449,7 @@ void* itx_3588j_fan_thread_daemon(void *arg) /* done */
 	} while (1);
 }
 
+#define ITX_PWM "/sys/devices/platform/pwm-fan-hwmon/hwmon0/pwm1"
 void set_ITX_3588J_fan_pwm(char pwm) /* done */
 {
 	//const uint64_t tmp = (pwm << 8) - pwm;
@@ -455,9 +457,9 @@ void set_ITX_3588J_fan_pwm(char pwm) /* done */
 	const int rpwm = pwm * (float) ((1 / 3) + 2);
 
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	const int fd = open("/sys/class/hwmon/hwmon0/pwm1", O_RDWR);
+	const int fd = open(ITX_PWM, O_RDWR);
 	if (fd <= 0) {
-		printf("set_ITX_3588J_fan_pwm: Can not open %s file\n", "/sys/class/hwmon/hwmon0/pwm1");
+		printf("set_ITX_3588J_fan_pwm: Can not open %s file\n", ITX_PWM);
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
 	char buf[20]; // guessing 4 bytes padding
@@ -524,15 +526,16 @@ void* cs_r1_3399jd4_main_fan_thread_daemon(void *arg) /* done */
 	} while (1);
 }
 
+#define CS_R1_PWM "/sys/class/pwm/pwmchip0/pwm0/duty/cycle"
 void set_CS_R1_3399JD4_MAIN_fan_pwm(uint8_t pwm) /* done */
 {
 	int rpwm = ((pwm - 0x32) * 800) + 59000;
 	long h0 = 0;
 	char nbuf[20] = "\0";
 	printf("set_PWM: %d\n pwm: %d\n", rpwm, pwm);
-	int fd = open("/sys/class/pwm/pwmchip0/pwm0/duty_cycle", O_RDWR & 0x900); // 0x902
+	int fd = open(CS_R1_PWM, O_RDWR & 0x900); // 0x902
 	if (fd < 1) {
-		printf("set_CS_R1_3399JD4_MAIN_fan_pwm: Can not open %s file\n", "/sys/class/pwm/pwmchip0/pwm0/duty/cycle");
+		printf("set_CS_R1_3399JD4_MAIN_fan_pwm: Can not open %s file\n", CS_R1_PWM);
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
 	sprintf(nbuf, "%d", rpwm);
@@ -596,13 +599,13 @@ int fan_CS_R2_3399JD4_MAIN_init(char *sth) /* done - although the last part is a
 		sth[h4 + 44] = (unsigned char) (&uart_cmd)[h4];
 		++h4;
 	}
-	sth[12] = init_uart("/dev/ttyS0");
-	const char what[] = "/dev/ttyS0";
-	sth[10] = what[0];
-	sth[10 + 7] = what[7];
+	static const char what[] = "/dev/ttyS0";
+	sth[12] = init_uart(what);
+	sth[0x10] = what[0];
+	sth[0x10 + 7] = what[7];
 	// sth[36] something -> x19
-	sth[36 + 12] = init_uart("/dev/ttyS4");
-	const char what2[] = "/dev/ttyS4";
+	static const char what2[] = "/dev/ttyS4";
+	sth[36 + 12] = init_uart(what2);
 	sth[52] = what2[0];
 	sth[52 + 7] = what2[7];
 	return 0;
@@ -719,7 +722,8 @@ void set_fan_pwm(uint8_t pwm_ch) /* done */
 
 int main(int argc, char **argv)
 {
-	if (argc < 2) {
+	// either there is an unused var here, or argc's upper bits are being zeroed
+	if (argc <= 1) {
 		puts("./main CS-R1-3399JD4-MAIN 50");
 		puts("./main CS-R2-3399JD4-MAIN --debug");
 		puts("./main ROC-RK3588S-PC 50");
@@ -733,45 +737,46 @@ int main(int argc, char **argv)
 
 	if (!strcmp(argv[1], "CS_R1-3399JD4-MAIN")) {
 		puts("board CS_R1_3399JD4_MAIN");
-		board = CS_R1_3399JD4;
+		board = CS_R1_3399JD4; // 0
 	} else if (!strcmp(argv[1], "CS-R2-3399JD4-MAIN")) {
 		puts("board CS_R2_3399JD4_MAIN");
-		board = CS_R2_3399JD4;
+		board = CS_R2_3399JD4; // 1
 	} else if (!strcmp(argv[1], "ROC-RK3588S-PC")) {
 		puts("board ROC-RK3588S-PC");
-		board = ROC_RK3588S_PC;
-		const int RK3588S_V = get_ROC_RK3588S_PC_version();
+		board = ROC_RK3588S_PC; // 2
+		int RK3588S_V = -1;
+		RK3588S_V = get_ROC_RK3588S_PC_version();
 		if (RK3588S_V == -1) {
 			puts("can not judge ROC-RK3588S-PC version");
 			return -1;
 		} else if (!RK3588S_V) {
 			ROC_RK3588S_PC_VERSION = 0;
-			puts("board ROC-RK3588 S-PC VERSION v0.1");
+			puts("board ROC-RK3588S-PC VERSION v0.1");
 		} else if (RK3588S_V == 1) {
 			ROC_RK3588S_PC_VERSION = 1;
-			puts("board ROC-RK3588 S-PC VERSION v1.X");
+			puts("board ROC-RK3588S-PC VERSION v1.X");
 		}
 	} else if (!strcmp(argv[1], "ITX_3588J 50")) {
 		puts("board ITX-3588J");
-		board = ITX_3588J;
+		board = ITX_3588J; // 3
 	} else if (!strcmp(argv[1], "ROC-RK3588-PC")) {
 		puts("board ROC-RK3588-PC");
-		board = ROC_RK3588_PC;
+		board = ROC_RK3588_PC; // 4
 	}
 	// if you didn't change the model formats
 	// you could have just made the models to strings
 	// and you could have done most of this in one place
 	// it would also be smart to error out if no valid model is specified
-	//-------------------------------------------------------------------------------
 
-	float x0[4];
-	PID_init(x0);
+	PID_init(PID_fan);
+	// in the original binary this is not PID_fan but a weird .got reference to PID_fan
+	// I not sure if this is vodo or just a weird querk of old gcc
 	fan_init();
 	pthread_t t1, t2, t3, t4, t5, t6;
 	if (argc > 2) {
 		// this is not proper argument parsing
 		// it is better to either use a plain loop or getopts
-		if (strcmp("--debug", argv[2])) {
+		if (!strcmp(argv[2], "--debug")) {
 			const int in = atoi(argv[2]);
 			// and w0, w0, 0xff
 			set_fan_pwm(5);
