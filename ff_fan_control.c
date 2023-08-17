@@ -192,6 +192,7 @@ int init_uart(const char *tty_path) /* done */
 		printf("%s:open error!\n", tty_path);
 		fprintf(stderr, "uart_open %s error\n", tty_path);
 		perror("open:");
+		// three error messages...
 		return -3;
 	}
 	if (1 > uart_set(fd, 1, 8, 0, 1)) {
@@ -218,7 +219,7 @@ int get_ROC_RK3588S_PC_version() /* done */
 	}
 	char volt_str[1000] = "";
 	fgets(volt_str, 1000, iv);
-	// this read should not return more than 32 bytes
+	// this read should not return more than 64 bytes
 	const size_t volt_len = strlen(volt_str);
 	volt_str[volt_len - 1] = '\0';
 	const int volt = (int) atof(volt_str);
@@ -237,19 +238,19 @@ void fan_ROC_RK3588S_PC_init() /* done */
 {
 	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", "r");
 	// if you don't want to do this with open() and write()
-	// you should use system()
+	// but incist on this, you should atleast use system()
 	// popen() just leaked a fd
-	// also you should check if your write was actually successful
+	// also you should probably check if your write was actually successful
 }
 
 #define RK3588_PWM "/sys/class/hwmon/hwmon1/pwm1"
 void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) /* done */
 {
 	int rpwm = 0;
-	char str[10] = "\0";
+	char str[12] = "\0";
 	int unused = 0;
 	// while radare saw it as the 16th place in str being zeroed
-	// I think its more likely that this is a var they never used and there fore was interpreted as str + 16
+	// I think its more likely that this is a var they never used and therefore was interpreted as str + 16
 	switch (ROC_RK3588S_PC_VERSION) {
 	case 0:
 		rpwm = pwm * (float) ((1 / 3) + 2);
@@ -271,9 +272,10 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) /* done */
 	}
 	sprintf(str, "%d", rpwm);
 	int res = write(fd, str, strlen(str));
+	// this variable seams to stay unused
+
 	// good practice(and compiler warnings) would demand another fail check here
 	// especially because this is a write which is likely to fail
-	// also this variable seams to stay unused
 	close(fd);
 }
 
@@ -288,10 +290,10 @@ float roc_rk3588s_pc_average_temperature() /* done */
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
 		// we don't have a read, either through a misconfigured kernel or handware issues
-		// just returning 50 risks frying your board and leaves the issue undiscovered
+		// just returning 50 risks frying your board
 	}
 	int count = 0;
-	// this read will never return more than 32 chars
+	// this read should not return more than 64 bytes
 	while (fgets(str, 1000, stream)) {
 		int temp_l = strlen(str);
 		str[temp_l - 1] = 0;
@@ -770,7 +772,7 @@ int main(int argc, char **argv)
 
 	PID_init(PID_fan);
 	// in the original binary this is not PID_fan but a weird .got reference to PID_fan
-	// I not sure if this is vodo or just a weird querk of old gcc
+	// seams like they declared PID_fan in another compilation unit and failed to use lto
 	fan_init();
 	pthread_t t1, t2, t3, t4, t5, t6;
 	if (argc > 2) {
