@@ -134,33 +134,42 @@ int get_temperature(char *path, long something) /* done */ /* unused */
 	return ret;
 }
 
-int sys_uart_read(int fd, char *buf, int nbytes, int x3)
+int sys_uart_read(int fd, char *buf, int nbytes, int it) /* done */
 {
+	fd_set read_fds;
 	int rbytes = 0;
-	fd_set tl_set; //char slt_str[64];
+	// char *bufp = buf, bogus pointer to buf, I just presume this is a compiler op
 	do {
+		FD_ZERO(&read_fds);
+		FD_SET(fd, &read_fds);
+		// you are setting up a completly new fd_set every iteration
+
 		struct timeval tv = {
-			.tv_sec = x3 / 1000,
-			.tv_usec = (x3 % 1000) * 1000
+			//.tv_sec = ((0x10624dd3 * it) >> 0x26) -  (it >> 0x1f),
+			.tv_sec = it / 1000,
+			//.tv_usec = (it - ((((0x10624dd3 * it) >> 0x26) - (it >> 0x1f)) * 0x3e8)) * 0x3e8
+			.tv_usec = it * 100
 		};
-		int slt = select(fd + 1, &tl_set, NULL, NULL, &tv);
-		if (slt < 0) {
+		
+		int ret = select(fd + 1, &read_fds, NULL, NULL, &tv);
+		if (ret < 0) {
 			perror("sys_uart_read:select");
 			break;
 		}
-		if (!slt) break;
-		int tmp = read(fd, buf + rbytes, nbytes - rbytes);
-		if (tmp < 0) {
+		if (!ret)
+			break;
+		ret = read(fd, buf + rbytes, nbytes - rbytes);
+		if (ret < 0) {
 			if (errno != EINTR) {
 				perror("sys_uart_write:read");
 				break;
 			}
-			tmp = 0;
-		} else if (tmp == 0) {
+			ret = 0;
+		} else if (ret == 0) {
 			tcflush(fd, TCIFLUSH);
 			return -3;
 		}
-		rbytes += tmp;
+		rbytes += ret;
 	} while (rbytes != nbytes);
 	tcflush(fd, TCIFLUSH);
 	return rbytes;
@@ -645,37 +654,71 @@ void set_CS_R2_3399JD4_MAIN_fan_pwm(char *pwm, int sth) /* done */
 }
 
 // ------------------------------
-void PID_init(float x0[])
+void PID_init(float pid[]) /* done */
 {
-	// 0x3c449ba6 in IEEE-754 0.12f
-	// 0x42400000 in IEEE-754 48.0f
-	// 0x000186a0 in IEEE-754 1.4f
 	switch (board) {
 	case CS_R2_3399JD4: // 1
-		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
-		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
+		pid[0]=2.0f; 
+		pid[1]=0.12f; // 0x3df5c28f
+		pid[2]=1.0f;
+		pid[3]=48.0f; // 0x42400000
+		pid[4]=0.0f;
+		pid[5]=0.0f; 
+		pid[6]=0.0f;
+		pid[7]=0.0f;
+		pid[8]=0.0f;
+		pid[9]=1.4f; // 0x3fb33333
 		break;
 	case CS_R1_3399JD4: // 0
-		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
-		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
+		pid[0]=2.0f; 
+		pid[1]=0.12f; // 0x3df5c28f
+		pid[2]=1.0f;
+		pid[3]=48.0f; // 0x42400000
+		pid[4]=0.0f;
+		pid[5]=0.0f; 
+		pid[6]=0.0f;
+		pid[7]=0.0f;
+		pid[8]=0.0f;
+		pid[9]=1.4f; // 0x3fb33333
 		break;
 	case ROC_RK3588S_PC: // 2
-		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
-		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
+		pid[0]=2.0f; 
+		pid[1]=0.12f; // 0x3df5c28f
+		pid[2]=1.0f;
+		pid[3]=48.0f; // 0x42400000
+		pid[4]=0.0f;
+		pid[5]=0.0f; 
+		pid[6]=0.0f;
+		pid[7]=0.0f;
+		pid[8]=0.0f;
+		pid[9]=1.4f; // 0x3fb33333
 		break;
 	case ITX_3588J: // 3
-		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
-		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
+		pid[0]=2.0f; 
+		pid[1]=0.12f; // 0x3df5c28f
+		pid[2]=1.0f;
+		pid[3]=48.0f; // 0x42400000
+		pid[4]=0.0f;
+		pid[5]=0.0f; 
+		pid[6]=0.0f;
+		pid[7]=0.0f;
+		pid[8]=0.0f;
+		pid[9]=1.4f; // 0x3fb33333
 		break;
 	case ROC_RK3588_PC: // 4
-		x0[0]=2.0f;x0[1]=0.12f;x0[2]=1.0f;x0[3]=48.0f;x0[4]=0.0f;
-		x0[5]=0.0f;x0[6]=0.0f; x0[7]=0.0f;x0[8]=0.0f; x0[9]=1.4f;
+		pid[0]=2.0f; 
+		pid[1]=0.12f; // 0x3df5c28f
+		pid[2]=1.0f;
+		pid[3]=48.0f; // 0x42400000
+		pid[4]=0.0f;
+		pid[5]=0.0f; 
+		pid[6]=0.0f;
+		pid[7]=0.0f;
+		pid[8]=0.0f;
+		pid[9]=1.4f; // 0x3fb33333
 		break;
 	}
-	// FIXME: var / arg is not the same, this is not correct
 	// these happen to all be the same 
-	// also making a function out of the initilization of a float array
-	// seams a bit off
 }
 
 void fan_init() /* done */
