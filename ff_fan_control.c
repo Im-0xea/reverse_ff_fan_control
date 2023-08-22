@@ -28,13 +28,11 @@ int fan_switch = 1; // 0x01000000
 int global_pwm = 50; // 0x32000000
 
 bool completed; // unused till now
-// "local"
+// local static
 // __func__ might be needed
 int temperature; // unused till now
 int count; // unused till now
 int tmp; // unused till now
-// while tmp is a fine name for a temporary var
-// for a global one that is a questionable choice
 
 int global_debug; // unused till now
 int uart_end = 8432298; // 0xaaaa8000 // unused till now
@@ -139,6 +137,7 @@ int sys_uart_read(int fd, char *buf, int nbytes, int it) /* done */
 	fd_set read_fds;
 	int rbytes = 0;
 	// char *bufp = buf, bogus pointer to buf, I just presume this is a compiler op
+
 	do {
 		FD_ZERO(&read_fds);
 		FD_SET(fd, &read_fds);
@@ -172,6 +171,7 @@ int sys_uart_read(int fd, char *buf, int nbytes, int it) /* done */
 		rbytes += ret;
 	} while (rbytes != nbytes);
 	tcflush(fd, TCIFLUSH);
+
 	return rbytes;
 }
 
@@ -290,18 +290,18 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) /* done */
 
 float roc_rk3588s_pc_average_temperature() /* done */
 {
-	char str[1000];
 	float s[73];
-	memset(s, 0, 292);
+	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
 	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
-	if (stream == 0) {
+	if (!stream) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
 		// we don't have a read, either through a misconfigured kernel or handware issues
 		// just returning 50 risks frying your board
 	}
 	int count = 0;
+	char str[1000];
 	// this read should not return more than 64 bytes
 	while (fgets(str, 1000, stream)) {
 		int temp_l = strlen(str);
@@ -314,7 +314,7 @@ float roc_rk3588s_pc_average_temperature() /* done */
 	}
 	if (count > 1) {
 		ret -= s[count];
-		ret /= count;
+		ret /= (float) count;
 	}
 	printf("sum = %f\n", ret);
 	fclose(stream);
@@ -342,19 +342,19 @@ void fan_ROC_RK3588_PC_init() /* done */
 	// see comments on RK3588S init
 }
 
-float roc_rk3588_pc_average_temperature()
+float roc_rk3588_pc_average_temperature() /* done */
 {
-	char str[1000];
 	float s[73];
-	memset(s, 0, 292);
+	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
 	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
-	if (stream == 0) {
+	if (!stream) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
 		// see comment on rk3588s average temperature
 	}
 	int count = 0;
+	char str[1000];
 	// see comment on rk3588s average temperature
 	while (fgets(str, 1000, stream)) {
 		int temp_l = strlen(str);
@@ -367,7 +367,7 @@ float roc_rk3588_pc_average_temperature()
 	}
 	if (count > 1) {
 		ret -= s[count];
-		ret /= count;
+		ret /= (float) count;
 	}
 	printf("sum = %f\n", ret);
 	fclose(stream);
@@ -416,17 +416,17 @@ void fan_ITX_3588J_init() /* done */
 
 float itx_3588j_average_temperature()
 {
-	char str[1000];
 	float s[73];
-	memset(s, 0, 292);
+	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
 	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
-	if (stream == 0) {
+	if (!stream) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
 		// see comment on rk3588s average temperature
 	}
 	int count = 0;
+	char str[1000];
 	// see comment on rk3588s average temperature
 	while (fgets(str, 1000, stream)) {
 		int temp_l = strlen(str);
@@ -434,12 +434,14 @@ float itx_3588j_average_temperature()
 		s[count] = atof(str); // << 2 because of float size
 		printf("%f\n", s[count]);
 		s[count] /= 1000.0f; // 0x44fa0000
+
 		ret += s[count];
+
 		++count;
 	}
 	if (count > 1) {
 		ret -= s[count];
-		ret /= count;
+		ret /= (float) count;
 	}
 	printf("sum = %f\n", ret);
 	fclose(stream);
@@ -496,7 +498,7 @@ float cs_r1_3399jd4_main_average_temperature()
 {
 	char str[1000];
 	float s[73];
-	memset(s, 0, 292);
+	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
 	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
 	if (stream == 0) {
@@ -517,7 +519,7 @@ float cs_r1_3399jd4_main_average_temperature()
 	}
 	if (count > 1) {
 		ret -= s[count];
-		ret /= count;
+		ret /= (float) count;
 	}
 	printf("sum = %f\n", ret);
 	fclose(stream);
@@ -595,7 +597,7 @@ void *fan_thread_tx(void *arg) /* done */
 	} while (1);
 }
 
-int fan_CS_R2_3399JD4_MAIN_init(char *sth) /* done - although the last part is a bit too strange */
+int fan_CS_R2_3399JD4_MAIN_init(char *sth) /* done - although it is way too strange */
 {
 	// x19 -> 10h seams like a stack check fail
 	// although it is not, not getting used either though
@@ -610,12 +612,12 @@ int fan_CS_R2_3399JD4_MAIN_init(char *sth) /* done - although the last part is a
 		sth[h4 + 44] = (unsigned char) (&uart_cmd)[h4];
 		++h4;
 	}
-	static const char what[] = "/dev/ttyS0";
+	const char what[] = "/dev/ttyS0";
 	sth[12] = init_uart(what);
-	sth[0x10] = what[0];
-	sth[0x10 + 7] = what[7];
+	sth[16] = what[0];
+	sth[16 + 7] = what[7];
 	// sth[36] something -> x19
-	static const char what2[] = "/dev/ttyS4";
+	const char what2[] = "/dev/ttyS4";
 	sth[36 + 12] = init_uart(what2);
 	sth[52] = what2[0];
 	sth[52 + 7] = what2[7];
