@@ -19,7 +19,7 @@ enum {
 	ROC_RK3588_PC = 4
 } board;
 
-float PID_fan[10];
+extern float PID_fan[10];
 void (*PID_fan_func)(int);
 char PID_debug_buff[1024]; // unused till now
 int ROC_RK3588S_PC_VERSION;

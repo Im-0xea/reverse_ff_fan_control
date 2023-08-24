@@ -1,14 +1,16 @@
-CC = gcc
+CC = aarch64-unknown-linux-gnu-gcc
 CFLAGS = -O0 -Wno-unused-result
-LDFLAGS =
+LDFLAGS = -Wl,--build-id
 
 all: reversed
 
-reversed:
-	$(CC) ff_fan_control.c -o ff_fan_control $(CFLAGS) $(LDFLAGS)
+build:
+	mkdir -p build
 
-nextgen:
-	@echo maybe soon
+reversed: build
+	$(CC) -c -o build/ff_fan_control.o $(CFLAGS) ff_fan_control.c
+	$(CC) -c -o build/ff_fan_control_pid.o $(CFLAGS) ff_fan_control_pid.c
+	$(CC) -o ff_fan_control $(LDFLAGS) build/ff_fan_control.o build/ff_fan_control_pid.o
 
 clean:
 	rm ff_fan_control
