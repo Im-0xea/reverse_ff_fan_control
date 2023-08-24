@@ -6,28 +6,43 @@
 
 \* PLEASE DON'T SUE ME! \*
 
-This is my attempt at reconstructing the approximate C code from which firefly\_fan\_control was made.
+This is my attempt at reconstructing the sourcecode from which firefly\_fan\_control was made.
 
-First I just wanted to stare at strace output till I knew how to turn my roaring fan off, but since I learned about r2 exactly at this time, I quickly decided to go for full reversal.
+My Reasons:
 
-The purpose of this first was just to make it retargetable for other libc's and learning the in and outs of r2.
+- TURN THE DARN ROARING FAN OFF!!!
+- learn radare2
+- retarget for alternative libc
+- find bugs, resource leakage, inefficiency, dangerous code
 
-But as I quickly realized, the primary purpose of this is to reconstruct awful proprietary code and laugh at it.
+About the binary:
 
-Feel free to enjoy commented issues in the code, often regarding basic good practice, resource leakage and waste, and decisions which might be dangerous to hardware.
+- Ubuntu-20.04.1 system
+- C programming language
+- GCC-9.4.0-1
+- GLIBC-2.17
+- No optimizations
+- Several Compilation units
+- No LTO nor combined compilation
+- No stripping
+- included build ID -> "ae294f03589848da41fb42044a26b84286f39842"
 
-About the binary: It was not stripped and compiled without optimizations on gcc-9.4.0-1.against glibc-2.17 on a Ubuntu-20.04.1 machine, in multiple compilation units, compiled seperately, than linked ofc without lto.
+Exposed info:
 
-This allows me to read names of non-static functions, global variables(aswell as some "local" static variables) and see decently clean code constructs.
+- non-static function names
+- global and local-static variable names
+- decently clean code constructs
 
-I might not always get everything right, but Im doing my best to get as close to original as possible.
+Reconstruction methods:
 
-Most of this is made through static analysis of aarch64 assembly and comparison with reconstruction compiler output.
+- static analysis of aarch64 assembly
+- comparison with my own compiler output
+- decompiler output (for prototyping of functions)
 
 Tools used:
 
-- r2 (rizin, half of the things which are broken in r2 are not in rizin and the other way around)
+- r2 and rizin (half of the things which are broken in r2 are not in rizin and the same goes the other way around)
 - objdump (sparsely)
 - readelf (sparsely)
-- r2ghidra (rzghidra) (sparsely)
-- iaito (cutter) (sparsely)
+- r2ghidra and rzghidra (sparsely)
+- iaito and cutter (sparsely)
