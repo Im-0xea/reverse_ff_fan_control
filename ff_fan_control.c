@@ -414,7 +414,7 @@ void fan_ITX_3588J_init() /* done */
 	// see comments on RK3588S init
 }
 
-float itx_3588j_average_temperature()
+float itx_3588j_average_temperature() /* done */
 {
 	float s[73];
 	memset(s, 0, 73 * sizeof(float));
@@ -434,9 +434,7 @@ float itx_3588j_average_temperature()
 		s[count] = atof(str); // << 2 because of float size
 		printf("%f\n", s[count]);
 		s[count] /= 1000.0f; // 0x44fa0000
-
-		ret += s[count];
-
+		ret += s[count] * (double) 0.9f; // found inside .rodata - little endian 0xcdccccccccccec3f
 		++count;
 	}
 	if (count > 1) {
