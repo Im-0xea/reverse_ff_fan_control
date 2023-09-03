@@ -15,13 +15,14 @@
  *       reversed
  *  firefly_fan_control
  *
- * "kill proprietary software"
- * - Me (Xea)
+ *  Copymiddle (CM) 2023 Xea. All wrongs rejected 
+ *  see ./UNLICENSE
+ *
+ *  "kill proprietary software"
+ *  - Me (Xea)
  *
  *
- * static bin anal by : Xea
- *
- * proprietary bin by : firefly "open source" team
+ *  proprietary bin by : firefly "open source" team
  *
  */
 
