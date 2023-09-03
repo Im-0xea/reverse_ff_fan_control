@@ -1,28 +1,27 @@
-/* +----------------+
- * |       #        |
- * |        #       |
- * |        #       |
- * |       ##       |
- * |  ########    ##|
- * |##    ########  |
- * |       ##       |
- * |       #        |
- * |       #        |
- * |        #       |
- * +----------------+
- * 
- * ff_fan_control (reversed firefly_fan_control)
+/*  +----------------+
+ *  |       #        |
+ *  |        #       |
+ *  |        #       |
+ *  |       ##       |
+ *  |  ########    ##|
+ *  |##    ########  |
+ *  |       ##       |
+ *  |       #        |
+ *  |       #        |
+ *  |        #       |
+ *  +----------------+
+ *  - ff_fan_control -
  *
- * pwned by: Xea
  *
- * closed binary by: firefly
+ * static bin anal by: Xea
+ *
+ * closed binary by:   firefly "open source" team
  *
  *
  * "kill proprietary software"
  * - Me
  *
  */
-
 
 // headers ---------------------------------------------------------------------
 #include <errno.h>
@@ -184,7 +183,7 @@ int sys_uart_read(int fd, char *buf, int nbytes, int it) /* done */
 			// (it >> 0x1f)) * 0x3e8)) * 0x3e8
 			.tv_usec = it * 100
 		};
-		
+
 		int ret = select(fd + 1, &read_fds, NULL, NULL, &tv);
 		if (ret < 0) {
 			perror("sys_uart_read:select");
@@ -275,7 +274,8 @@ int get_ROC_RK3588S_PC_version() /* done */
 	    "cat /sys/bus/iio/devices/iio:device0/in_voltage5_raw", "r");
 	// the proper C way would be using open() and read()
 	if (!iv) {
-		puts("can not open /sys/bus/iio:device0/in_voltage5_raw file");
+		puts(
+		  "can not open /sys/bus/iio:device0/in_voltage5_raw file");
 		fclose(iv);
 		// should be pclose()
 		return -1;
@@ -303,7 +303,8 @@ void fan_ROC_RK3588S_PC_init() /* done */
 	// if you don't want to do this with open() and write()
 	// but incist on this, you should atleast use system()
 	// popen() just leaked a fd
-	// also you should probably check if your write was actually successful
+	// also you should probably check
+	// if your write was actually successful
 }
 
 #define RK3588_PWM "/sys/class/hwmon/hwmon1/pwm1"
@@ -331,15 +332,16 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) /* done */
 	int fd = open(RK3588_PWM, O_RDWR & 0x900); // 0x902
 	if (fd <= 0) {
 		printf(
-		    "set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", RK3588_PWM);
+		  "set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n",
+		  RK3588_PWM);
 		// at this point you should be returning
 		// instead you are writting and closing a invalid fd
 	}
 	sprintf(str, "%d", rpwm);
 	int res = write(fd, str, strlen(str));
 	// this variable seams to stay unused
-
-	// good practice(and compiler warnings) would demand another fail check here
+	// also good practice(and compiler warnings)
+	// would demand another fail check here
 	// especially because this is a write which is likely to fail
 	close(fd);
 }
@@ -411,7 +413,8 @@ float roc_rk3588_pc_average_temperature() /* done */
 	FILE * stream = popen(
 	    "cat /sys/class/thermal/thermal_zone*/temp", "r");
 	if (!stream) {
-		puts("no such file /sys/class/thermal/thermal_zone*/temp");
+		puts(
+		  "no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
 		// see comment on rk3588s average temperature
 	}
@@ -462,7 +465,8 @@ void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) /* done */
 	int fd = open(RK3588_PWM, O_RDWR & 0x900); // 0x902
 	if (fd <= 0) {
 		printf(
-		  "set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n", RK3588_PWM);
+		  "set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n",
+		  RK3588_PWM);
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
 	sprintf(str, "%d", rpwm);
@@ -502,7 +506,8 @@ float itx_3588j_average_temperature() /* done */
 		printf("%f\n", s[count]);
 		s[count] /= 1000.0f; // 0x44fa0000
 		ret += s[count] * (double) 0.9f;
-		// found inside .rodata - little endian 0xcdccccccccccec3f
+		// found inside .rodata 
+		// little endian 0xcdccccccccccec3f
 		++count;
 	}
 	if (count > 1) {
@@ -525,7 +530,8 @@ void* itx_3588j_fan_thread_daemon(void *arg) /* done */
 		} while (++x != 4);
 		x = 0;
 		global_temperature =
-		  itx_3588j_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
+		  itx_3588j_average_temperature() * 1000.0f;
+		  // 0x447a0000 in IEEE-754
 	} while (1);
 }
 
@@ -533,13 +539,15 @@ void* itx_3588j_fan_thread_daemon(void *arg) /* done */
 void set_ITX_3588J_fan_pwm(char pwm) /* done */
 {
 	//const uint64_t tmp = (pwm << 8) - pwm;
-	//const uint64_t rpwm = (((tmp * 0x51eb851f) >> 0x20) >> 5) - (tmp >> 0x1f);
+	//const uint64_t rpwm =
+	// (((tmp * 0x51eb851f) >> 0x20) >> 5) - (tmp >> 0x1f);
 	const int rpwm = pwm * (float) ((1 / 3) + 2);
 
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
 	const int fd = open(ITX_PWM, O_RDWR);
 	if (fd <= 0) {
-		printf("set_ITX_3588J_fan_pwm: Can not open %s file\n", ITX_PWM);
+		printf(
+		  "set_ITX_3588J_fan_pwm: Can not open %s file\n", ITX_PWM);
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
 	char buf[20]; // guessing 4 bytes padding
@@ -595,7 +603,8 @@ float cs_r1_3399jd4_main_average_temperature() /* done */
 			// somehow not rodata :o - 0x3ff6666666666666
 			// last 2 bytes 0x6666 overwriten with lsl 48
 		} else {
-			ret += s[count] * (double) 1.4f; // same situation
+			ret += s[count] * (double) 1.4f;
+			// same situation
 		}
 		// weirdly unique for device
 		// could have been done with some simple math
@@ -619,7 +628,8 @@ void* cs_r1_3399jd4_main_fan_thread_daemon(void *arg) /* done */
 		usleep(500000);
 		if (++i != 2) continue;
 		i = 0;
-		global_temperature = cs_r1_3399jd4_main_average_temperature();
+		global_temperature =
+		  cs_r1_3399jd4_main_average_temperature();
 		global_temperature *= 1000.0f;
 	} while (1);
 }
@@ -847,7 +857,8 @@ void set_fan_pwm(uint8_t pwm_ch) /* done */
 // main ------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
-	// either there is an unused var here, or argc's upper bits are being zeroed
+	// either there is an unused var here
+	// or argc's upper bits are being zeroed
 	if (argc <= 1) {
 		puts("./main CS-R1-3399JD4-MAIN 50");
 		puts("./main CS-R2-3399JD4-MAIN --debug");
@@ -891,7 +902,8 @@ int main(int argc, char **argv)
 	// if you didn't change the model formats
 	// you could have just made the models to strings
 	// and you could have done most of this in one place
-	// it would also be smart to error out if no valid model is specified
+	// it would also be smart to error out
+	// if no valid model is specified
 
 	PID_init(PID_fan);
 	// in the original binary this is not PID_fan
@@ -907,45 +919,52 @@ int main(int argc, char **argv)
 			const int in = atoi(argv[2]);
 			// and w0, w0, 0xff
 			set_fan_pwm(5);
-			// those "threadN create error" messages don't make any sense
+			// the "threadN create error" messages
+			// don't make any sense
 			// and don't give any indication were the issue is
 			// also you could have used 1 or 2 pthreads
 			// you have 6 of which at max 2 are used
 			switch (board) {
 			case CS_R2_3399JD4: // 1
-				if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
+				if (pthread_create(&t2, NULL,
+				    fan_thread_tx, NULL) != 0) {
 					puts("thread1 create error");
 					return -1;
 				}
-				if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
+				if (pthread_create(&t3, NULL,
+				    fan_thread_rx, NULL) != 0) {
 					puts("thread2 create error");
 					return -1;
 				}
 				break;
 			case CS_R1_3399JD4: // 0
 				if (pthread_create(&t1, NULL,
-				    cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+				    cs_r1_3399jd4_main_fan_thread_daemon,
+				    NULL)!= 0) {
 					puts("thread3 create error");
 					return -1;
 				}
 				break;
 			case ROC_RK3588S_PC: // 2
 				if (pthread_create(&t4, NULL,
-				    roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
+				    roc_rk3588s_pc_fan_thread_daemon,
+				    NULL) != 0) {
 					puts("thread4 create error");
 					return -1;
 				}
 				break;
 			case ITX_3588J: // 3
 				if (pthread_create(&t5, NULL,
-				    itx_3588j_fan_thread_daemon, NULL) != 0) {
+				    itx_3588j_fan_thread_daemon,
+				    NULL) != 0) {
 					puts("thread5 create error");
 					return -1;
 				}
 				break;
 			case ROC_RK3588_PC: // 4
 				if (pthread_create(&t6, NULL,
-				    roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
+				    roc_rk3588_pc_fan_thread_daemon,
+				    NULL) != 0) {
 					puts("thread4 create error");
 					return -1;
 				}
@@ -956,39 +975,45 @@ int main(int argc, char **argv)
 	}
 	switch (board) {
 	case CS_R2_3399JD4: // 1
-		if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
+		if (pthread_create(&t2, NULL,
+		    fan_thread_tx, NULL) != 0) {
 			puts("thread1 create error");
 			return -1;
 		}
-		if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
+		if (pthread_create(&t3, NULL,
+		    fan_thread_rx, NULL) != 0) {
 			puts("thread2 create error");
 			return -1;
 		}
 		break;
 	case CS_R1_3399JD4: // 0
 		if (pthread_create(&t1, NULL,
-		    cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+		    cs_r1_3399jd4_main_fan_thread_daemon,
+		    NULL) != 0) {
 			puts("thread3 create error");
 			return -1;
 		}
 		break;
 	case ROC_RK3588S_PC: // 2
 		if (pthread_create(&t4, NULL,
-		    roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
+		    roc_rk3588s_pc_fan_thread_daemon,
+		    NULL) != 0) {
 			puts("thread4 create error");
 			return -1;
 		}
 		break;
 	case ITX_3588J: // 3
 		if (pthread_create(&t5, NULL,
-		    itx_3588j_fan_thread_daemon, NULL) != 0) {
+		    itx_3588j_fan_thread_daemon,
+		    NULL) != 0) {
 			puts("thread5 create error");
 			return -1;
 		}
 		break;
 	case ROC_RK3588_PC: // 4
 		if (pthread_create(&t6, NULL,
-		    roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
+		    roc_rk3588_pc_fan_thread_daemon,
+		    NULL) != 0) {
 			puts("thread4 create error");
 			return -1;
 		}
@@ -999,11 +1024,15 @@ int main(int argc, char **argv)
 	init_time();
 	printf("pwm: %d\n", global_pwm);
 	if (board == CS_R2_3399JD4) {
-		if (pthread_create(&t2, NULL, fan_thread_tx, NULL) != 0) {
+		if (pthread_create(&t2, NULL,
+		    fan_thread_tx,
+		    NULL) != 0) {
 			puts("thread1 create error");
 			return -1;
 		}
-		if (pthread_create(&t3, NULL, fan_thread_rx, NULL) != 0) {
+		if (pthread_create(&t3, NULL,
+		    fan_thread_rx,
+		    NULL) != 0) {
 			puts("thread2 create error");
 			return -1;
 		}
