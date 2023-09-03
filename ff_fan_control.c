@@ -51,6 +51,9 @@
 #include <termios.h>
 #include <pthread.h>
 #include <unistd.h>
+#if defined(FF_NG)
+#include <getopt.h>
+#endif
 // -----------------------------------------------------------------------------
 
 // top level declarations ------------------------------------------------------
@@ -65,7 +68,7 @@ enum {
 
 #if !defined(FF_NG)
 extern float PID_fan[10];
-// includes from pid_stub for binary accuracy
+// includes from pid_stub for accurate .got pointer
 #else // defined(FF_NG)
 float PID_fan[10];
 #endif
@@ -807,6 +810,7 @@ void set_CS_R2_3399JD4_MAIN_fan_pwm(char *pwm, int sth) // done
 // general functions -----------------------------------------------------------
 void PID_init(float pid[]) // done
 {
+	#if !defined(FF_NG)
 	switch (board) {
 	case CS_R2_3399JD4: // 1
 		pid[0]=2.0f; 
@@ -870,6 +874,18 @@ void PID_init(float pid[]) // done
 		break;
 	}
 	// these happen to all be the same 
+	#else // defined(FF_NG)
+	pid[0]=2.0f; 
+	pid[1]=0.12f; // 0x3df5c28f
+	pid[2]=1.0f;
+	pid[3]=48.0f; // 0x42400000
+	pid[4]=0.0f;
+	pid[5]=0.0f; 
+	pid[6]=0.0f;
+	pid[7]=0.0f;
+	pid[8]=0.0f;
+	pid[9]=1.4f; // 0x3fb33333
+	#endif // defined(FF_NG)
 }
 
 void fan_init() // done
@@ -917,6 +933,27 @@ void set_fan_pwm(uint8_t pwm_ch) // done
 }
 // -----------------------------------------------------------------------------
 
+#if defined(FF_NG)
+static void usage(const char * name)
+{
+	printf(
+	     "Usage: %s [BOARD] [PWM]\n"
+	     "Regulate fan speed for some firefly SBCs\n"
+	     "\n"
+	     "Supported Boards:\n"
+	     "    - CS-R1-3399JD4\n"
+	     "    - CS-R2-3399JD4\n"
+	     "    - ROC-RK3588S-PC\n"
+	     "    - ITX_3588J\n"
+	     "    - ROC-RK3588-PC\n"
+	     "\n"
+	     "Flags:\n"
+	     " -h --help     print usage\n"
+	     " -d --debug    enable debug mode\n",
+	     name);
+}
+#endif // defined(FF_NG)
+
 // main ------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
@@ -932,23 +969,70 @@ int main(int argc, char **argv)
 		// I know this might be more readable
 		// but you are calling puts 5 times
 		// also this is not proper usage
+		// AND the CS-R*-3399JD4 boards probably don't have
+		// -MAIN in their name
 		#else // defined(FF_NG)
-		puts("./main CS-R1-3399JD4-MAIN 50\n"
-		     "./main CS-R2-3399JD4-MAIN --debug\n"
-		     "./main ROC-RK3588S-PC 50\n"
-		     "./main ITX_3588J 50\n"
-		     "./main ROC-RK3588-PC 50");
+			usage(argv[0]);
 		#endif // defined(FF_NG)
 		return 0;
 	}
 
+	#if defined(FF_NG)
+	const struct option long_opt[] = {
+		{"help", no_argument, 0, 'h'},
+		{"debug", no_argument, 0, 'd'},
+		{0,0,0,0}
+	};
+	bool debug_mode = false;
+	do {
+		int opt = getopt_long(argc, argv,
+		    "hd", long_opt, NULL);
+
+		if (opt == -1)
+			break;
+
+		switch (opt) {
+		default:
+		case '?':
+			return 1;
+		case 'h':
+			usage(argv[0]);
+			exit(1);
+		case 'd':
+			debug_mode = true;
+			break;
+		}
+	} while (1);
+	
+	if (optind >= argc) {
+		fprintf(stderr,
+		    "no arguments provided\n");
+		usage(argv[0]);
+		return 1;
+	}
+	#endif // defined(FF_NG)
+
+	#if !defined(FF_NG)
 	if (!strcmp(argv[1], "CS_R1-3399JD4-MAIN")) {
 		puts("board CS_R1_3399JD4_MAIN");
 		board = CS_R1_3399JD4; // 0
 	} else if (!strcmp(argv[1], "CS-R2-3399JD4-MAIN")) {
 		puts("board CS_R2_3399JD4_MAIN");
 		board = CS_R2_3399JD4; // 1
+	// once again, I don't think -MAIN belongs in the name
+	#else // defined(FF_NG)
+	if (!strcmp(argv[optind], "CS_R1-3399JD4")) {
+		puts("board CS_R1_3399JD4");
+		board = CS_R1_3399JD4; // 0
+	} else if (!strcmp(argv[optind], "CS-R2-3399JD4")) {
+		puts("board CS_R2_3399JD4");
+		board = CS_R2_3399JD4; // 1
+	#endif // defined(FF_NG)
+	#if !defined(FF_NG)
 	} else if (!strcmp(argv[1], "ROC-RK3588S-PC")) {
+	#else // defined(FF_NG)
+	} else if (!strcmp(argv[optind], "ROC-RK3588S-PC")) {
+	#endif // defined(FF_NG)
 		puts("board ROC-RK3588S-PC");
 		board = ROC_RK3588S_PC; // 2
 		int RK3588S_V = -1;
@@ -963,15 +1047,23 @@ int main(int argc, char **argv)
 			ROC_RK3588S_PC_VERSION = 1;
 			puts("board ROC-RK3588S-PC VERSION v1.X");
 		}
+	#if !defined(FF_NG)
 	} else if (!strcmp(argv[1], "ITX_3588J 50")) {
+	#else // defined(FF_NG)
+	} else if (!strcmp(argv[optind], "ITX_3588J 50")) {
+	#endif // defined(FF_NG)
 		puts("board ITX-3588J");
 		board = ITX_3588J; // 3
+	#if !defined(FF_NG)
 	} else if (!strcmp(argv[1], "ROC-RK3588-PC")) {
+	#else // defined(FF_NG)
+	} else if (!strcmp(argv[optind], "ROC-RK3588-PC")) {
+	#endif // defined(FF_NG)
 		puts("board ROC-RK3588-PC");
 		board = ROC_RK3588_PC; // 4
 	#if defined(FF_NG)
 	} else {
-		fprintf(stderr, "invalid board: %s\n", argv[1]);
+		fprintf(stderr, "invalid board: %s\n", argv[optind]);
 		return 1;
 	#endif // defined(FF_NG)
 	}
@@ -988,11 +1080,18 @@ int main(int argc, char **argv)
 	fan_init();
 
 	pthread_t t1, t2, t3, t4, t5, t6;
+	#if !defined(FF_NG)
 	if (argc > 2) {
+	#endif
 		// this is not proper argument parsing
 		// it is better to either use a plain loop or getopts
+		#if !defined(FF_NG)
 		if (!strcmp(argv[2], "--debug")) {
 			const int in = atoi(argv[2]);
+		#else // defined(FF_NG)
+		if (debug_mode) {
+			const int in = atoi(argv[optind + 1]);
+		#endif // defined(FF_NG)
 			// and w0, w0, 0xff
 			set_fan_pwm(5);
 			// the "threadN create error" messages
@@ -1048,7 +1147,9 @@ int main(int argc, char **argv)
 			}
 			while (1) sleep(1);
 		}
-	}
+	#if !defined(FF_NG)
+	} // if argc end
+	#endif
 	switch (board) {
 	case CS_R2_3399JD4: // 1
 		if (pthread_create(&t2, NULL,
@@ -1113,7 +1214,8 @@ int main(int argc, char **argv)
 			return -1;
 		}
 	}
-	while (start) sleep(1);
+	while (start)
+		sleep(1);
 	set_fan_pwm(0);
 	return 0;
 }
