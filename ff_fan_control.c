@@ -23,6 +23,8 @@
  *
  */
 
+
+// headers ---------------------------------------------------------------------
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -35,7 +37,9 @@
 #include <termios.h>
 #include <pthread.h>
 #include <unistd.h>
+// -----------------------------------------------------------------------------
 
+// top level declarations ------------------------------------------------------
 enum {
 	CS_R1_3399JD4 = 0,
 	CS_R2_3399JD4 = 1,
@@ -67,7 +71,9 @@ int global_temperature;
 int start = 1; // 0x01000000
 int debug_buff_count; // unused till now
 char firefly_fan[72];
+// -----------------------------------------------------------------------------
 
+// utility functions -----------------------------------------------------------
 void init_time() /* done */
 {
 	struct itimerval itv = {
@@ -118,14 +124,6 @@ int uart_set(int fd, int x1, int x2, int x3, int x4)
 	return 0;
 }
 
-int sys_uart_close(const int fd) /* done */ /* unused */
-{
-	close(fd);
-	return 0;
-	// is this really too complicated to remember?
-	// also you return 0 even on failure
-}
-
 void fan_alarm(char *fan) /* done */
 {
 	printf("%s: speed error\n", fan + 16);
@@ -157,11 +155,20 @@ int get_temperature(char *path, long something) /* done */ /* unused */
 	return ret;
 }
 
+int sys_uart_close(const int fd) /* done */ /* unused */
+{
+	close(fd);
+	return 0;
+	// is this really too complicated to remember?
+	// also you return 0 even on failure
+}
+
 int sys_uart_read(int fd, char *buf, int nbytes, int it) /* done */
 {
 	fd_set read_fds;
 	int rbytes = 0;
-	// char *bufp = buf, bogus pointer to buf, I just presume this is a compiler op
+	// char *bufp = buf
+	// bogus pointer to buf, I just presume this is a compiler op
 
 	do {
 		FD_ZERO(&read_fds);
@@ -169,9 +176,12 @@ int sys_uart_read(int fd, char *buf, int nbytes, int it) /* done */
 		// you are setting up a completly new fd_set every iteration
 
 		struct timeval tv = {
-			//.tv_sec = ((0x10624dd3 * it) >> 0x26) -  (it >> 0x1f),
+			//.tv_sec =
+			// ((0x10624dd3 * it) >> 0x26) -  (it >> 0x1f),
 			.tv_sec = it / 1000,
-			//.tv_usec = (it - ((((0x10624dd3 * it) >> 0x26) - (it >> 0x1f)) * 0x3e8)) * 0x3e8
+			//.tv_usec = 
+			// (it - ((((0x10624dd3 * it) >> 0x26) -
+			// (it >> 0x1f)) * 0x3e8)) * 0x3e8
 			.tv_usec = it * 100
 		};
 		
@@ -221,7 +231,8 @@ int sys_uart_write(int fd, char *buf, size_t bytes) /* done */
 
 int init_uart(const char *tty_path) /* done */
 {
-	const int fd = open(tty_path, O_RDWR & AT_SYMLINK_NOFOLLOW); // 0x102
+	int fd = open(
+	    tty_path, O_RDWR & AT_SYMLINK_NOFOLLOW); // 0x102
 	if (fd < 0) {
 		printf("%s:open error!\n", tty_path);
 		fprintf(stderr, "uart_open %s error\n", tty_path);
@@ -240,10 +251,28 @@ int init_uart(const char *tty_path) /* done */
 	return fd;
 }
 
-// ROC_RK3588S_PC -----------------------------------------
+void send_fan_cmd(char *cmd) /* done */
+{
+	char *format = cmd;
+	long h0 = (long) format[12];
+	// seams like you forgot to use it
+	if (sys_uart_write(format[12], format,
+	           4 /*, 0x2710 unused */) < 0)
+		printf("%s: error\n", format + 16);
+	if (sys_uart_write(format[12], format + 8
+	             , 4 /*, 0x2710 unused */) < 0)
+		printf("%s: error\n", format + 16);
+	if (sys_uart_write(format[12], format + 4,
+	               4 /*, 0x2710 unused */) < 0)
+		printf("%s: error\n", format + 16);
+}
+// -----------------------------------------------------------------------------
+
+// ROC_RK3588S_PC functions ----------------------------------------------------
 int get_ROC_RK3588S_PC_version() /* done */
 {
-	FILE * iv = popen("cat /sys/bus/iio/devices/iio:device0/in_voltage5_raw", "r");
+	FILE * iv = popen(
+	    "cat /sys/bus/iio/devices/iio:device0/in_voltage5_raw", "r");
 	// the proper C way would be using open() and read()
 	if (!iv) {
 		puts("can not open /sys/bus/iio:device0/in_voltage5_raw file");
@@ -284,7 +313,8 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) /* done */
 	char str[12] = "\0";
 	int unused = 0;
 	// while radare saw it as the 16th place in str being zeroed
-	// I think its more likely that this is a var they never used and therefore was interpreted as str + 16
+	// I think its more likely that this is a var
+	// they never used and therefore was interpreted as str + 16
 	switch (ROC_RK3588S_PC_VERSION) {
 	case 0:
 		rpwm = pwm * (float) ((1 / 3) + 2);
@@ -300,7 +330,8 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) /* done */
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
 	int fd = open(RK3588_PWM, O_RDWR & 0x900); // 0x902
 	if (fd <= 0) {
-		printf("set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", RK3588_PWM);
+		printf(
+		    "set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n", RK3588_PWM);
 		// at this point you should be returning
 		// instead you are writting and closing a invalid fd
 	}
@@ -318,11 +349,13 @@ float roc_rk3588s_pc_average_temperature() /* done */
 	float s[73];
 	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
-	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
+	FILE * stream = popen(
+	    "cat /sys/class/thermal/thermal_zone*/temp", "r");
 	if (!stream) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
-		// we don't have a read, either through a misconfigured kernel or handware issues
+		// we don't have a read
+		// either through a misconfigured kernel or handware issues
 		// just returning 50 risks frying your board
 	}
 	int count = 0;
@@ -356,11 +389,14 @@ void *roc_rk3588s_pc_fan_thread_daemon(void *arg) /* done */
 			// seams more practical to sleep 250000 ms once
 		} while (++x != 4);
 		x = 0;
-		global_temperature = roc_rk3588s_pc_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
+		global_temperature =
+		    roc_rk3588s_pc_average_temperature() * 1000.0f;
+		// 0x447a0000 in IEEE-754
 	} while (1);
 }
+// -----------------------------------------------------------------------------
 
-// ROC_RK3588_PC --------------------------------------------
+// ROC_RK3588_PC functions -----------------------------------------------------
 void fan_ROC_RK3588_PC_init() /* done */
 {
 	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", "r");
@@ -372,7 +408,8 @@ float roc_rk3588_pc_average_temperature() /* done */
 	float s[73];
 	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
-	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
+	FILE * stream = popen(
+	    "cat /sys/class/thermal/thermal_zone*/temp", "r");
 	if (!stream) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
@@ -409,7 +446,8 @@ void *roc_rk3588_pc_fan_thread_daemon(void *arg) /* done */
 			// see comment rk3588s thread daemon
 		} while (++x != 4);
 		x = 0;
-		global_temperature = roc_rk3588_pc_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
+		global_temperature = roc_rk3588_pc_average_temperature()
+		* 1000.0f; // 0x447a0000 in IEEE-754
 	} while (1);
 }
 
@@ -423,7 +461,8 @@ void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) /* done */
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
 	int fd = open(RK3588_PWM, O_RDWR & 0x900); // 0x902
 	if (fd <= 0) {
-		printf("set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n", RK3588_PWM);
+		printf(
+		  "set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n", RK3588_PWM);
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
 	sprintf(str, "%d", rpwm);
@@ -431,11 +470,13 @@ void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) /* done */
 	// read comments set_ROC_RK3588S_PC_fan_pwm
 	close(fd);
 }
+// -----------------------------------------------------------------------------
 
-// ITX_3588J ------------------------------------------------
+// ITX_3588J functions ---------------------------------------------------------
 void fan_ITX_3588J_init() /* done */
 {
-	popen("echo 50 > /sys/devices/platform/pwm-fan/hwmon/hwmon0/pwm1", "r");
+	popen(
+	  "echo 50 > /sys/devices/platform/pwm-fan/hwmon/hwmon0/pwm1", "r");
 	// see comments on RK3588S init
 }
 
@@ -444,7 +485,8 @@ float itx_3588j_average_temperature() /* done */
 	float s[73];
 	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
-	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
+	FILE * stream = popen(
+	     "cat /sys/class/thermal/thermal_zone*/temp", "r");
 	if (!stream) {
 		puts("no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
@@ -459,7 +501,8 @@ float itx_3588j_average_temperature() /* done */
 		s[count] = atof(str); // << 2 because of float size
 		printf("%f\n", s[count]);
 		s[count] /= 1000.0f; // 0x44fa0000
-		ret += s[count] * (double) 0.9f; // found inside .rodata - little endian 0xcdccccccccccec3f
+		ret += s[count] * (double) 0.9f;
+		// found inside .rodata - little endian 0xcdccccccccccec3f
 		++count;
 	}
 	if (count > 1) {
@@ -481,7 +524,8 @@ void* itx_3588j_fan_thread_daemon(void *arg) /* done */
 			// see comment rk3588s thread daemon
 		} while (++x != 4);
 		x = 0;
-		global_temperature = itx_3588j_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
+		global_temperature =
+		  itx_3588j_average_temperature() * 1000.0f; // 0x447a0000 in IEEE-754
 	} while (1);
 }
 
@@ -504,8 +548,9 @@ void set_ITX_3588J_fan_pwm(char pwm) /* done */
 	close(fd);
 	// read comments set_ROC_RK3588S_PC_fan_pwm
 }
+// -----------------------------------------------------------------------------
 
-// ----------------------------------------
+// CS_R1_3399JD4 functions -----------------------------------------------------
 void fan_CS_R1_3399JD4_MAIN_init() /* done */
 {
 	popen("echo 0 > /sys/class/pwm/pwmchip0/export", "r");
@@ -543,14 +588,17 @@ float cs_r1_3399jd4_main_average_temperature() /* done */
 		} else if (s[count] <= 53.0f) { // 0x42540000
 			ret += s[count];
 		} else if (s[count] <= 60.0f) { // 0x42700000
-			ret += s[count] * (double) 1.13f; // rodata 0x14ae47e17a14f23f - 0x57a8 
+			ret += s[count] * (double) 1.13f;
+			// rodata 0x14ae47e17a14f23f - 0x57a8 
 		} else if (s[count] <= 65.0f) { // 0x42820000
 			ret += s[count] * (double) 1.4f;
-			// somehow not rodata :o - 0x3ff6666666666666 last 2 bytes 0x6666 overwriten with lsl 48
+			// somehow not rodata :o - 0x3ff6666666666666
+			// last 2 bytes 0x6666 overwriten with lsl 48
 		} else {
 			ret += s[count] * (double) 1.4f; // same situation
 		}
-		// weirdly unique for device / could have been done with some simple math
+		// weirdly unique for device
+		// could have been done with some simple math
 		++count;
 	}
 
@@ -585,7 +633,9 @@ void set_CS_R1_3399JD4_MAIN_fan_pwm(uint8_t pwm) /* done */
 	printf("set_PWM: %d\n pwm: %d\n", rpwm, pwm);
 	int fd = open(CS_R1_PWM, O_RDWR & 0x900); // 0x902
 	if (fd < 1) {
-		printf("set_CS_R1_3399JD4_MAIN_fan_pwm: Can not open %s file\n", CS_R1_PWM);
+		printf(
+		  "set_CS_R1_3399JD4_MAIN_fan_pwm: Can not open %s file\n",
+		  CS_R1_PWM);
 		// read comments set_ROC_RK3588S_PC_fan_pwm
 	}
 	sprintf(nbuf, "%d", rpwm);
@@ -594,21 +644,9 @@ void set_CS_R1_3399JD4_MAIN_fan_pwm(uint8_t pwm) /* done */
 	// read comments set_ROC_RK3588S_PC_fan_pwm
 	close(fd);
 }
+// -----------------------------------------------------------------------------
 
-// -----------------------------------------
-void send_fan_cmd(char *cmd) /* done */
-{
-	char *format = cmd;
-	long h0 = (long) format[12];
-	// seams like you forgot to use it
-	if (sys_uart_write(format[12], format, 4 /*, 0x2710 unused */) < 0)
-		printf("%s: error\n", format + 16);
-	if (sys_uart_write(format[12], format + 8, 4 /*, 0x2710 unused */) < 0)
-		printf("%s: error\n", format + 16);
-	if (sys_uart_write(format[12], format + 4, 4 /*, 0x2710 unused */) < 0)
-		printf("%s: error\n", format + 16);
-}
-
+// fan_CS_R2_3399JD4 functions -------------------------------------------------
 void *fan_thread_rx(void *arg)
 {
 	char *h140;
@@ -634,7 +672,7 @@ void *fan_thread_tx(void *arg) /* done */
 	} while (1);
 }
 
-int fan_CS_R2_3399JD4_MAIN_init(char *sth) /* done - although it is way too strange */
+int fan_CS_R2_3399JD4_MAIN_init(char *sth) /* done */
 {
 	// x19 -> 10h seams like a stack check fail
 	// although it is not, not getting used either though
@@ -691,8 +729,9 @@ void set_CS_R2_3399JD4_MAIN_fan_pwm(char *pwm, int sth) /* done */
 	pwm[45] = h1;
 	pwm[47] = ch;
 }
+// -----------------------------------------------------------------------------
 
-// ------------------------------
+// general functions -----------------------------------------------------------
 void PID_init(float pid[]) /* done */
 {
 	switch (board) {
@@ -803,7 +842,9 @@ void set_fan_pwm(uint8_t pwm_ch) /* done */
 		break;
 	}
 }
+// -----------------------------------------------------------------------------
 
+// main ------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
 	// either there is an unused var here, or argc's upper bits are being zeroed
@@ -814,7 +855,7 @@ int main(int argc, char **argv)
 		puts("./main ITX_3588J 50");
 		puts("./main ROC-RK3588-PC 50");
 		// I know this might be more readable
-		// but you are calling puts 5 times for what could be one write to stdout
+		// but you are calling puts 5 times
 		// also this is not proper usage
 		return 0;
 	}
@@ -853,9 +894,11 @@ int main(int argc, char **argv)
 	// it would also be smart to error out if no valid model is specified
 
 	PID_init(PID_fan);
-	// in the original binary this is not PID_fan but a weird .got reference to PID_fan
-	// seams like they declared PID_fan in another compilation unit and failed to use lto
+	// in the original binary this is not PID_fan
+	// but a weird .got reference to PID_fan
+	// seams like they declared PID_fan in another compilation unit
 	fan_init();
+
 	pthread_t t1, t2, t3, t4, t5, t6;
 	if (argc > 2) {
 		// this is not proper argument parsing
@@ -880,25 +923,29 @@ int main(int argc, char **argv)
 				}
 				break;
 			case CS_R1_3399JD4: // 0
-				if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+				if (pthread_create(&t1, NULL,
+				    cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
 					puts("thread3 create error");
 					return -1;
 				}
 				break;
 			case ROC_RK3588S_PC: // 2
-				if (pthread_create(&t4, NULL, roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
+				if (pthread_create(&t4, NULL,
+				    roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
 					puts("thread4 create error");
 					return -1;
 				}
 				break;
 			case ITX_3588J: // 3
-				if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
+				if (pthread_create(&t5, NULL,
+				    itx_3588j_fan_thread_daemon, NULL) != 0) {
 					puts("thread5 create error");
 					return -1;
 				}
 				break;
 			case ROC_RK3588_PC: // 4
-				if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
+				if (pthread_create(&t6, NULL,
+				    roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
 					puts("thread4 create error");
 					return -1;
 				}
@@ -919,25 +966,29 @@ int main(int argc, char **argv)
 		}
 		break;
 	case CS_R1_3399JD4: // 0
-		if (pthread_create(&t1, NULL, cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
+		if (pthread_create(&t1, NULL,
+		    cs_r1_3399jd4_main_fan_thread_daemon, NULL) != 0) {
 			puts("thread3 create error");
 			return -1;
 		}
 		break;
 	case ROC_RK3588S_PC: // 2
-		if (pthread_create(&t4, NULL, roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
+		if (pthread_create(&t4, NULL,
+		    roc_rk3588s_pc_fan_thread_daemon, NULL) != 0) {
 			puts("thread4 create error");
 			return -1;
 		}
 		break;
 	case ITX_3588J: // 3
-		if (pthread_create(&t5, NULL, itx_3588j_fan_thread_daemon, NULL) != 0) {
+		if (pthread_create(&t5, NULL,
+		    itx_3588j_fan_thread_daemon, NULL) != 0) {
 			puts("thread5 create error");
 			return -1;
 		}
 		break;
 	case ROC_RK3588_PC: // 4
-		if (pthread_create(&t6, NULL, roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
+		if (pthread_create(&t6, NULL,
+		    roc_rk3588_pc_fan_thread_daemon, NULL) != 0) {
 			puts("thread4 create error");
 			return -1;
 		}
@@ -961,3 +1012,4 @@ int main(int argc, char **argv)
 	set_fan_pwm(0);
 	return 0;
 }
+// -----------------------------------------------------------------------------
