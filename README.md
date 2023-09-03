@@ -4,7 +4,7 @@
 
 \* NO ORIGINAL FIREFLY SOURCE CODE NOR BINARIES ARE INCLUDED \*
 
-\* PLEASE DON'T SUE ME! \*
+\* DON'T EVEN TRY TO SUE ME \*
 
 This is my attempt at reconstructing the sourcecode from which firefly\_fan\_control was made.
 
