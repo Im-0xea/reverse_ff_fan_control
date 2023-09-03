@@ -26,8 +26,18 @@
  *
  */
 
-// comment to disable fixes
-#define FF_NG
+
+/* define: FF_NG
+ *
+ * anything ifdef'ed by this define is not original
+ * but added by me to make this proper software
+ *
+ * changes include:
+ * - proper and SAFE error handling
+ * - proper writing to /sys and /proc files (without popen and shell commands)
+ * - disabling unused and unnecessary code
+ * - basic common sense
+ */
 
 // headers ---------------------------------------------------------------------
 #include <errno.h>
@@ -52,8 +62,15 @@ enum {
 	ITX_3588J = 3,
 	ROC_RK3588_PC = 4
 } board;
+// no telling if this is what they did but it makes stuff cleaner
 
+#if !defined(FF_NG)
 extern float PID_fan[10];
+// includes from pid_stub for binary accuracy
+#else // defined(FF_NG)
+float PID_fan[10];
+#endif
+
 void (*PID_fan_func)(int);
 char PID_debug_buff[1024]; // unused till now
 int ROC_RK3588S_PC_VERSION;
@@ -80,6 +97,39 @@ int tmp; // unused till now
 // -----------------------------------------------------------------------------
 
 // utility functions -----------------------------------------------------------
+#if !defined(FF_NG)
+int get_temperature(char *path, long something) // done - unused
+{
+	int fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		printf("%s:open error!\n", path);
+		fprintf(stderr, "uart_open %s error\n", path);
+		// failed to adjust error message copy pasted from uart_open
+		perror("open:");
+		return -3;
+	}
+	char buf[20]; // presumeably 4 bytes padding
+	int ret;
+	if (read(fd, buf, 20) == 0) {
+		printf("read error: %s\n", path);
+		// return uninitilized
+	} else {
+		ret = atoi(buf);
+		printf("read temperature: %d\n", ret);
+	}
+	close(fd);
+	return ret;
+}
+
+int sys_uart_close(const int fd) // done - unused
+{
+	close(fd);
+	return 0;
+	// is this really too complicated to remember?
+	// also you return 0 even on failure
+}
+#endif // !defined(FF_NG)
+
 void init_time() // done
 {
 	struct itimerval itv = {
@@ -142,37 +192,6 @@ void fan_alarm(char *fan) // done
 	fan[10] |= 1; // & 0xff - only needed for char
 	fan[10] |= 2; // & 0xff - only needed for char
 	// I don't get it, so I can't complain
-}
-
-int get_temperature(char *path, long something) // done - unused
-{
-	const int fd = open(path, O_RDONLY);
-	if (fd < 0) {
-		printf("%s:open error!\n", path);
-		fprintf(stderr, "uart_open %s error\n", path);
-		// failed to adjust error message copy pasted from uart_open
-		perror("open:");
-		return -3;
-	}
-	char buf[20]; // presumeably 4 bytes padding
-	int ret;
-	if (read(fd, buf, 20) == 0) {
-		printf("read error: %s\n", path);
-		// return uninitilized
-	} else {
-		ret = atoi(buf);
-		printf("read temperature: %d\n", ret);
-	}
-	close(fd);
-	return ret;
-}
-
-int sys_uart_close(const int fd) // done - unused
-{
-	close(fd);
-	return 0;
-	// is this really too complicated to remember?
-	// also you return 0 even on failure
 }
 
 int sys_uart_read(int fd, char *buf, int nbytes, int it) // done
@@ -329,6 +348,7 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) // done
 	// while radare saw it as the 16th place in str being zeroed
 	// I think its more likely that this is a var
 	// they never used and therefore was interpreted as str + 16
+	#if !defined(FF_NG)
 	switch (ROC_RK3588S_PC_VERSION) {
 	case 0:
 		rpwm = pwm * (float) ((1 / 3) + 2);
@@ -336,11 +356,23 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) // done
 	case 1:
 		rpwm = pwm * (float) ((1 / 3) + 2);
 		break;
+	// congratulations, your switch has a duplicate case
 	default:
+		// if version check fails, the fan will be zerod
+		// THIS IS DANGEROUS!!!
 		break;
 	}
-	// congratulations, your switch has a duplicate case
-	// aaaand will not set rpwm if the version is unknown
+	#else // defined(FF_NG)
+		if (ROC_RK3588S_PC_VERSION == 0 ||
+		    ROC_RK3588S_PC_VERSION == 1) {
+			rpwm = pwm * (float) ((1 / 3) + 2);
+		} else {
+			fprintf(stderr, "invalid ROC_RK3588S_PC_VERSION: %d\n",
+			    ROC_RK3588S_PC_VERSION);
+			return;
+		}
+	#endif // defined(FF_NG)
+
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
 	int fd = open(RK3588_PWM, O_RDWR & 0x900); // 0x902
 	if (fd <= 0) {
@@ -349,6 +381,9 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) // done
 		  RK3588_PWM);
 		// at this point you should be returning
 		// instead you are writting and closing a invalid fd
+		#if defined(FF_NG)
+		return;
+		#endif
 	}
 	sprintf(str, "%d", rpwm);
 	int res = write(fd, str, strlen(str));
@@ -426,10 +461,17 @@ float roc_rk3588_pc_average_temperature() // done
 	FILE * stream = popen(
 	    "cat /sys/class/thermal/thermal_zone*/temp", "r");
 	if (!stream) {
+		#if !defined(FF_NG)
 		puts(
 		  "no such file /sys/class/thermal/thermal_zone*/temp");
 		return 50.0f; // 0x4248000 in IEEE-754
 		// see comment on rk3588s average temperature
+		#else // defined(FF_NG)
+		fputs(
+		  "failed to read from /sys/class/thermal/thermal_zone*/temp",
+		  stderr);
+		exit(1);
+		#endif // defined(FF_NG)
 	}
 	int count = 0;
 	char str[1000];
@@ -873,6 +915,7 @@ int main(int argc, char **argv)
 	// either there is an unused var here
 	// or argc's upper bits are being zeroed
 	if (argc <= 1) {
+		#if !defined(FF_NG)
 		puts("./main CS-R1-3399JD4-MAIN 50");
 		puts("./main CS-R2-3399JD4-MAIN --debug");
 		puts("./main ROC-RK3588S-PC 50");
@@ -881,6 +924,13 @@ int main(int argc, char **argv)
 		// I know this might be more readable
 		// but you are calling puts 5 times
 		// also this is not proper usage
+		#else // defined(FF_NG)
+		puts("./main CS-R1-3399JD4-MAIN 50\n"
+		     "./main CS-R2-3399JD4-MAIN --debug\n"
+		     "./main ROC-RK3588S-PC 50\n"
+		     "./main ITX_3588J 50\n"
+		     "./main ROC-RK3588-PC 50");
+		#endif // defined(FF_NG)
 		return 0;
 	}
 
@@ -911,6 +961,11 @@ int main(int argc, char **argv)
 	} else if (!strcmp(argv[1], "ROC-RK3588-PC")) {
 		puts("board ROC-RK3588-PC");
 		board = ROC_RK3588_PC; // 4
+	#if defined(FF_NG)
+	} else {
+		fprintf(stderr, "invalid board: %s\n", argv[1]);
+		return 1;
+	#endif // defined(FF_NG)
 	}
 	// if you didn't change the model formats
 	// you could have just made the models to strings
