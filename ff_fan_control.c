@@ -15,13 +15,13 @@
  *       reversed
  *  firefly_fan_control
  *
+ * "kill proprietary software"
+ * - Me (Xea)
+ *
+ *
  * static bin anal by : Xea
  *
  * proprietary bin by : firefly "open source" team
- *
- *
- * "kill proprietary software"
- * - Me (Xea)
  *
  */
 
@@ -60,13 +60,6 @@ uint32_t uart_head = 2863267968; // 0x8000aaaa
 int fan_switch = 1; // 0x01000000
 int global_pwm = 50; // 0x32000000
 
-// local static
-bool completed; // unused till now
-// __func__ might be needed
-int temperature; // unused till now
-int count; // unused till now
-int tmp; // unused till now
-
 int global_debug; // unused till now
 int uart_end = 8432298; // 0xaaaa8000 // unused till now
 int uart_cmd = 838860800; // 0x320000000 // unused till now
@@ -75,6 +68,14 @@ int global_temperature;
 int start = 1; // 0x01000000
 int debug_buff_count; // unused till now
 char firefly_fan[72];
+// -----------------------------------------------------------------------------
+
+// local static ----------------------------------------------------------------
+bool completed; // unused till now
+// __func__ might be needed
+int temperature; // unused till now
+int count; // unused till now
+int tmp; // unused till now
 // -----------------------------------------------------------------------------
 
 // utility functions -----------------------------------------------------------
@@ -110,16 +111,22 @@ int uart_set(int fd, int x1, int x2, int x3, int x4)
 		perror("Setupserial 1");
 		return -1;
 	}
-	// TODO: set termios flags correctly
-	if (x2 == 7)
-		;
-	else if (x2 == 8)
-		;
-	if (x3 == 3)
-		;
-	else {
-		
+	void * h38 = NULL;
+	void * h10 = NULL;
+	void * h20 = NULL;
+	long h0 = 0;
+	int h2  = 0;
+	int h40; // uninitilized
+	h40 |= 0x880;
+	h40 &= 0xffffffcf;
+	if (x2 == 7) {
+		h40 |= 0x20;
+	} else if (x2 == 8) {
+		h40 |= 0x30;
 	}
+	if (x3 /* something something */); // you are here
+
+
 	tcflush(fd, 0);
 	if (tcsetattr(fd, 0, &tio)) {
 		perror("com set error");
