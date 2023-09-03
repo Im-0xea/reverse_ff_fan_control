@@ -1,14 +1,14 @@
 /*  +----------------+
- *  |       #        |
- *  |        #       |
- *  |        #       |
- *  |       ##       |
- *  |  ########    ##|
- *  |##    ########  |
- *  |       ##       |
- *  |       #        |
- *  |       #        |
- *  |        #       |
+ *  |O /   *%     \ O|
+ *  | /     *%     \ |
+ *  |/      *%      \|
+ *  |       @@     **|
+ *  |  %%%%@@@@****%%|
+ *  |%%****@@@@%%%%  |
+ *  |**     @@       |
+ *  |\      %*      /|
+ *  | \     %*     / |
+ *  |O \     %*   / O|
  *  +----------------+
  *  | ff_fan_control |
  *  +----------------+
@@ -16,16 +16,15 @@
  *  firefly_fan_control
  *
  *  Copymiddle (CM) 2023 Xea. All wrongs rejected 
- *  see ./UNLICENSE
+ *  see ./UNLICENSE file
  *
  *  "kill proprietary software"
  *  - Me (Xea)
  *
  *
- *  proprietary bin by : firefly "open source" team
+ *  proprietary bin by: firefly "open source" team
  *
  */
-
 
 /* define: FF_NG
  *
@@ -113,6 +112,7 @@ int get_temperature(char *path, long something) // done - unused
 	if (read(fd, buf, 20) == 0) {
 		printf("read error: %s\n", path);
 		// return uninitilized
+		// would fix with ifdef but this function is redundant anyhow
 	} else {
 		ret = atoi(buf);
 		printf("read temperature: %d\n", ret);
@@ -151,8 +151,16 @@ void init_sigaction() // done
 	sa.sa_handler = PID_fan_func; // sp+0x10
 	sa.sa_restorer = NULL; // sp+0x98
 	sigemptyset(&sa.sa_mask); // add 0x10 than sp+0x18
+	#if !defined(FF_NG)
 	sigaction(SIGALRM, &sa, NULL);
 	// might want an error check here
+	#else // defined(FF_NG)
+	if (sigaction(SIGALRM, &sa, NULL)) {
+		fputs("failed to setup signal action on SIGALARM",
+		      stderr);
+		exit(1);
+	}
+	#endif // defined(FF_NG)
 }
 
 int uart_set(int fd, int x1, int x2, int x3, int x4)
