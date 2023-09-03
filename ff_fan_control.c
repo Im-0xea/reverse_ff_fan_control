@@ -1,3 +1,28 @@
+/* +----------------+
+ * |       #        |
+ * |        #       |
+ * |        #       |
+ * |       ##       |
+ * |  ########    ##|
+ * |##    ########  |
+ * |       ##       |
+ * |       #        |
+ * |       #        |
+ * |        #       |
+ * +----------------+
+ * 
+ * ff_fan_control (reversed firefly_fan_control)
+ *
+ * pwned by: Xea
+ *
+ * closed binary by: firefly
+ *
+ *
+ * "kill proprietary software"
+ * - Me
+ *
+ */
+
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -27,8 +52,8 @@ uint32_t uart_head = 2863267968; // 0x8000aaaa
 int fan_switch = 1; // 0x01000000
 int global_pwm = 50; // 0x32000000
 
-bool completed; // unused till now
 // local static
+bool completed; // unused till now
 // __func__ might be needed
 int temperature; // unused till now
 int count; // unused till now
@@ -492,29 +517,43 @@ void fan_CS_R1_3399JD4_MAIN_init() /* done */
 	// 5 leaked file * 
 }
 
-float cs_r1_3399jd4_main_average_temperature()
+float cs_r1_3399jd4_main_average_temperature() /* done */
 {
-	char str[1000];
 	float s[73];
 	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
-	FILE * stream = popen("cat /sys/class/thermal/thermal_zone*/temp", "r");
-	if (stream == 0) {
-		puts("no such file /sys/class/thermal/thermal_zone*/temp");
+	FILE * stream = fopen("/tmp/fan_temperature", "r");
+
+	if (!stream) {
+		puts("no such file /tmp/fan_temperature");
 		return 50.0f; // 0x4248000 in IEEE-754
 		// see comment on rk3588s average temperature
 	}
 	int count = 0;
 	// see comment on rk3588s average temperature
+	char str[1000];
 	while (fgets(str, 1000, stream)) {
 		int temp_l = strlen(str);
 		str[temp_l - 1] = 0;
 		s[count] = atof(str); // << 2 because of float size
 		printf("%f\n", s[count]);
-		s[count] /= 1000.0f; // 0x44fa0000
-		ret += s[count];
+
+		if (s[count] <= 44.0f) { // 0x42300000
+			ret += 44.0f; // 0x42300000
+		} else if (s[count] <= 53.0f) { // 0x42540000
+			ret += s[count];
+		} else if (s[count] <= 60.0f) { // 0x42700000
+			ret += s[count] * (double) 1.13f; // rodata 0x14ae47e17a14f23f - 0x57a8 
+		} else if (s[count] <= 65.0f) { // 0x42820000
+			ret += s[count] * (double) 1.4f;
+			// somehow not rodata :o - 0x3ff6666666666666 last 2 bytes 0x6666 overwriten with lsl 48
+		} else {
+			ret += s[count] * (double) 1.4f; // same situation
+		}
+		// weirdly unique for device / could have been done with some simple math
 		++count;
 	}
+
 	if (count > 1) {
 		ret -= s[count];
 		ret /= (float) count;
