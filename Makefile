@@ -1,3 +1,6 @@
+# Copymiddle (CM) 2023 Xea. All wrongs rejected 
+# see ./UNLICENSE file
+
 CC = aarch64-unknown-linux-gnu-gcc
 CFLAGS = -O0 -Wno-unused-result
 LDFLAGS = -Wl,--build-id

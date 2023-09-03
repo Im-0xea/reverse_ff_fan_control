@@ -19,6 +19,7 @@ About the binary:
 
 - Ubuntu-20.04.1 system
 - C programming language
+- AARCH64
 - GCC-9.4.0-1
 - GLIBC-2.17
 - No optimizations
