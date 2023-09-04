@@ -34,6 +34,7 @@
  * changes include:
  * - proper and SAFE error handling
  * - proper writing to /sys and /proc files (without popen and shell commands)
+ * - proper argument parsing
  * - disabling unused and unnecessary code
  * - basic common sense
  */
@@ -58,13 +59,13 @@
 
 // top level declarations ------------------------------------------------------
 enum {
-	CS_R1_3399JD4 = 0,
-	CS_R2_3399JD4 = 1,
+	CS_R1_3399JD4  = 0,
+	CS_R2_3399JD4  = 1,
 	ROC_RK3588S_PC = 2,
-	ITX_3588J = 3,
-	ROC_RK3588_PC = 4
+	ITX_3588J      = 3,
+	ROC_RK3588_PC  = 4
 } board;
-// no telling if this is what they did but it makes stuff cleaner
+// no telling if this is what they actually wrote but I hope so
 
 #if !defined(FF_NG)
 extern float PID_fan[10];
@@ -132,15 +133,53 @@ int sys_uart_close(const int fd) // done - unused
 	// also you return 0 even on failure
 }
 #else // defined(FF_NG)
-int sys_write_num(char *path, long num)
+int sys_write_num(long num, char *path)
 {
+	char buf[64];
+	if (sprintf(buf, "%ld", num) <= 0) {
+		return 1;
+	}
+	int fd = open(path, O_WRONLY);
+	if (fd < 0)
+		return 1;
+	if (write(fd, buf, strlen(buf)) <= 0) {
+		close(fd);
+		return 1;
+	}
+	close(fd);
+	return 0;
+}
+#define WRITE_NUM_FATAL(NUM, PATH) \
+	do { \
+		if (sys_write_num(NUM, PATH)) { \
+			fprintf(stderr, \
+			        "failed to write: %ld to: %s\n", (long) NUM, \
+			        PATH); \
+			exit(1); \
+		} \
+	} while(0)
 
+int sys_cat_file(char *buf, size_t count, char *path)
+{
+	int fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return 1;
+	if (read(fd, buf, count) < 0) {
+		close(fd);
+		return 1;
+	}
+	close(fd);
+	return 0;
 }
 
-int sys_cat_file(char *path, char *buf)
-{
-
-}
+#define CAT_FILE_FATAL(BUF, SIZE, PATH) \
+	do { \
+		if (sys_cat_file(BUF, SIZE, PATH)) { \
+			fprintf(stderr, \
+			        "failed to read: %s\n", PATH); \
+			exit(1); \
+		} \
+	} while(0)
 #endif // defined(FF_NG)
 
 void init_time() // done
@@ -251,7 +290,7 @@ int sys_uart_read(int fd, char *buf, int nbytes, int it) // done
 				break;
 			}
 			ret = 0;
-		} else if (ret == 0) {
+		} else if (!ret) {
 			tcflush(fd, TCIFLUSH);
 			return -3;
 		}
@@ -266,7 +305,7 @@ int sys_uart_write(int fd, char *buf, size_t bytes) // done
                  //long x3 /* unused */)
 {
 	size_t nbytes = bytes;
-	while (nbytes != 0) {
+	while (nbytes) {
 		long wbytes = write(fd, buf, nbytes);
 		if (wbytes < 0) {
 			if (errno != EINTR) {
@@ -323,6 +362,8 @@ void send_fan_cmd(char *cmd) // done
 // ROC_RK3588S_PC functions ----------------------------------------------------
 int get_ROC_RK3588S_PC_version() // done
 {
+	char volt_str[1000] = "";
+	#if !defined(FF_NG)
 	FILE * iv = popen(
 	    "cat /sys/bus/iio/devices/iio:device0/in_voltage5_raw", "r");
 	// the proper C way would be using open() and read()
@@ -333,13 +374,17 @@ int get_ROC_RK3588S_PC_version() // done
 		// should be pclose()
 		return -1;
 	}
-	char volt_str[1000] = "";
 	fgets(volt_str, 1000, iv);
+	#else // defined(FF_NG)
+	CAT_FILE_FATAL(volt_str, 1000, "/sys/bus/iio/devices/iio:device0/in_voltage5_raw");
+	#endif // defined(FF_NG)
 	// this read should not return more than 64 bytes
 	const size_t volt_len = strlen(volt_str);
 	volt_str[volt_len - 1] = '\0';
 	const int volt = (int) atof(volt_str);
+	#if !defined(FF_NG)
 	fclose(iv);
+	#endif // !defined(FF_NG)
 	// should be pclose()
 	if (volt >= 0) {
 		if (volt <= 100)
@@ -352,12 +397,16 @@ int get_ROC_RK3588S_PC_version() // done
 
 void fan_ROC_RK3588S_PC_init() // done
 {
+	#if !defined(FF_NG)
 	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", "r");
 	// if you don't want to do this with open() and write()
 	// but incist on this, you should atleast use system()
 	// popen() just leaked a fd
 	// also you should probably check
 	// if your write was actually successful
+	#else // defined(FF_NG)
+	WRITE_NUM_FATAL(50, "/sys/class/hwmon/hwmon1/pwm1");
+	#endif // defined(FF_NG)
 }
 
 #define RK3588_PWM "/sys/class/hwmon/hwmon1/pwm1"
@@ -470,8 +519,12 @@ void *roc_rk3588s_pc_fan_thread_daemon(void *arg) // done
 // ROC_RK3588_PC functions -----------------------------------------------------
 void fan_ROC_RK3588_PC_init() // done
 {
+	#if !defined(FF_NG)
 	popen("echo 50 > /sys/class/hwmon/hwmon1/pwm1", "r");
 	// see comments on RK3588S init
+	#else // defined(FF_NG)
+	WRITE_NUM_FATAL(50, "sys/class/hwmon/hwmon1/pwm1");
+	#endif // defined(FF_NG)
 }
 
 float roc_rk3588_pc_average_temperature() // done
@@ -544,6 +597,9 @@ void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) // done
 		  "set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n",
 		  RK3588_PWM);
 		// read comments set_ROC_RK3588S_PC_fan_pwm
+		#if defined(FF_NG)
+		return;
+		#endif
 	}
 	sprintf(str, "%d", rpwm);
 	int res = write(fd, str, strlen(str));
@@ -555,9 +611,13 @@ void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) // done
 // ITX_3588J functions ---------------------------------------------------------
 void fan_ITX_3588J_init() // done
 {
+	#if !defined(FF_NG)
 	popen(
 	  "echo 50 > /sys/devices/platform/pwm-fan/hwmon/hwmon0/pwm1", "r");
 	// see comments on RK3588S init
+	#else // defined(FF_NG)
+	WRITE_NUM_FATAL(50, "/sys/devices/platform/pwm-fan/hwmon/hwmon0/pwm1");
+	#endif // defined(FF_NG)
 }
 
 float itx_3588j_average_temperature() // done
@@ -637,13 +697,21 @@ void set_ITX_3588J_fan_pwm(char pwm) // done
 // CS_R1_3399JD4 functions -----------------------------------------------------
 void fan_CS_R1_3399JD4_MAIN_init() // done
 {
+	#if !defined(FF_NG)
 	popen("echo 0 > /sys/class/pwm/pwmchip0/export", "r");
 	sleep(1);
 	popen("echo 100000 > /sys/class/pwm/pwmchip0/pwm0/period", "r");
 	popen("echo 60000 > /sys/class/pwm/pwmchip0/pwm0/duty_cycle", "r");
 	popen("echo inversed > /sys/class/pwm/pwmchip0/pwm0/polarity", "r");
 	popen("echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable", "r");
-	// 5 leaked file * 
+	// 5 leaked FPs and ever more popen bs and again no error checking!!!
+	#else // defined(FF_NG)
+	WRITE_NUM_FATAL(0, "/sys/class/pwm/pwmchip0/export");
+	WRITE_NUM_FATAL(100000, "/sys/class/pwm/pwmchip0/pwm0/period");
+	WRITE_NUM_FATAL(60000, "/sys/class/pwm/pwmchip0/pwm0/duty_cycle");
+	popen("echo inversed > /sys/class/pwm/pwmchip0/pwm0/polarity", "r");
+	WRITE_NUM_FATAL(1, "/sys/class/pwm/pwmchip0/pwm0/enable");
+	#endif // defined(FF_NG)
 }
 
 float cs_r1_3399jd4_main_average_temperature() // done
@@ -702,7 +770,8 @@ void* cs_r1_3399jd4_main_fan_thread_daemon(void *arg) // done
 	int i = 0;
 	do {
 		usleep(500000);
-		if (++i != 2) continue;
+		if (++i != 2)
+			continue;
 		i = 0;
 		global_temperature =
 		  cs_r1_3399jd4_main_average_temperature();
@@ -723,6 +792,9 @@ void set_CS_R1_3399JD4_MAIN_fan_pwm(uint8_t pwm) // done
 		  "set_CS_R1_3399JD4_MAIN_fan_pwm: Can not open %s file\n",
 		  CS_R1_PWM);
 		// read comments set_ROC_RK3588S_PC_fan_pwm
+		#if defined(FF_NG)
+		return;
+		#endif
 	}
 	sprintf(nbuf, "%d", rpwm);
 	int h2 = write(fd, nbuf, strlen(nbuf));

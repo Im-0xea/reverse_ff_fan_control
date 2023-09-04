@@ -3,7 +3,7 @@
 
 CC = cc
 CFLAGS = -Os -fno-stack-protector
-LDFLAGS = 
+LDFLAGS = -flto
 
 all: recon proper
 
