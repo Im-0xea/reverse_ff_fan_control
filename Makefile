@@ -1,9 +1,9 @@
 # Copymiddle (CM) 2023 Xea. All wrongs rejected 
 # see ./UNLICENSE file
 
-CC = aarch64-unknown-linux-gnu-gcc
-CFLAGS = -O0 -Wno-unused-result
-LDFLAGS = -Wl,--build-id
+CC = cc
+CFLAGS = -Os -fno-stack-protector
+LDFLAGS = 
 
 all: recon proper
 
@@ -11,12 +11,12 @@ build:
 	mkdir -p build
 
 recon: build
-	$(CC) -c -o build/ff_fan_control.o $(CFLAGS) ff_fan_control.c
-	$(CC) -c -o build/ff_fan_control_stub_pid.o $(CFLAGS) ff_fan_control_stub_pid.c
-	$(CC) -o ff_fan_control_old $(LDFLAGS) build/ff_fan_control.o build/ff_fan_control_stub_pid.o
+	$(CC) -c -o build/ff_fan_control.o -O0 -Wno-unused-result ff_fan_control.c
+	$(CC) -c -o build/ff_fan_control_stub_pid.o -O0 -Wno-unused-result ff_fan_control_stub_pid.c
+	$(CC) -o ff_fan_control_old -Wl,--build-id build/ff_fan_control.o build/ff_fan_control_stub_pid.o
 
 proper: build
-	$(CC) -o ff_fan_control_ng -DFF_NG $(LDFLAGS) $(CFLAGS) ff_fan_control.c
+	$(CC) -o ff_fan_control_ng -DFF_NG $(LDFLAGS) $(CFLAGS) -Wno-unused-result ff_fan_control.c
 
 clean:
 	rm ff_fan_control

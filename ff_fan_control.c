@@ -131,7 +131,17 @@ int sys_uart_close(const int fd) // done - unused
 	// is this really too complicated to remember?
 	// also you return 0 even on failure
 }
-#endif // !defined(FF_NG)
+#else // defined(FF_NG)
+int sys_write_num(char *path, long num)
+{
+
+}
+
+int sys_cat_file(char *path, char *buf)
+{
+
+}
+#endif // defined(FF_NG)
 
 void init_time() // done
 {
