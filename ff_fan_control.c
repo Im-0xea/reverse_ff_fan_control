@@ -125,7 +125,7 @@ int get_temperature(char *path, long something) // done - unused
 	return ret;
 }
 
-int sys_uart_close(const int fd) // done - unused
+int sys_uart_close(int fd) // done - unused
 {
 	close(fd);
 	return 0;
@@ -149,11 +149,35 @@ int sys_write_num(long num, char *path)
 	close(fd);
 	return 0;
 }
+
 #define WRITE_NUM_FATAL(NUM, PATH) \
 	do { \
 		if (sys_write_num(NUM, PATH)) { \
 			fprintf(stderr, \
 			        "failed to write: %ld to: %s\n", (long) NUM, \
+			        PATH); \
+			exit(1); \
+		} \
+	} while(0)
+
+int sys_write_str(char *str, char *path)
+{
+	int fd = open(path, O_WRONLY);
+	if (fd < 0)
+		return 1;
+	if (write(fd, str, strlen(str)) <= 0) {
+		close(fd);
+		return 1;
+	}
+	close(fd);
+	return 0;
+}
+
+#define WRITE_STR_FATAL(STR, PATH) \
+	do { \
+		if (sys_write_str(STR, PATH)) { \
+			fprintf(stderr, \
+			        "failed to write: %s to: %s\n", STR, \
 			        PATH); \
 			exit(1); \
 		} \
@@ -379,9 +403,9 @@ int get_ROC_RK3588S_PC_version() // done
 	CAT_FILE_FATAL(volt_str, 1000, "/sys/bus/iio/devices/iio:device0/in_voltage5_raw");
 	#endif // defined(FF_NG)
 	// this read should not return more than 64 bytes
-	const size_t volt_len = strlen(volt_str);
+	size_t volt_len = strlen(volt_str);
 	volt_str[volt_len - 1] = '\0';
-	const int volt = (int) atof(volt_str);
+	int volt = (int) atof(volt_str);
 	#if !defined(FF_NG)
 	fclose(iv);
 	#endif // !defined(FF_NG)
@@ -469,6 +493,8 @@ float roc_rk3588s_pc_average_temperature() // done
 	float s[73];
 	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
+	char str[1000];
+	#if !defined(FF_NG)
 	FILE * stream = popen(
 	    "cat /sys/class/thermal/thermal_zone*/temp", "r");
 	if (!stream) {
@@ -479,9 +505,14 @@ float roc_rk3588s_pc_average_temperature() // done
 		// just returning 50 risks frying your board
 	}
 	int count = 0;
-	char str[1000];
 	// this read should not return more than 64 bytes
 	while (fgets(str, 1000, stream)) {
+	#else // defined(FF_NG)
+	// IMPORTANT!!! THIS SHOULD BE A WILDCARD AT THE END OF THERMAL_ZONE
+	// I need to make a readdir loop and cat each of them
+	CAT_FILE_FATAL(str, 1000, "/sys/class/thermal/thermal_zone/temp");
+	{
+	#endif // defined(FF_NG)
 		int temp_l = strlen(str);
 		str[temp_l - 1] = 0;
 		s[count] = atof(str);
@@ -495,7 +526,9 @@ float roc_rk3588s_pc_average_temperature() // done
 		ret /= (float) count;
 	}
 	printf("sum = %f\n", ret);
+	#if !defined(FF_NG)
 	fclose(stream);
+	#endif // !defined(FF_NG)
 	// should be pclose()
 	return ret;
 }
@@ -504,10 +537,16 @@ void *roc_rk3588s_pc_fan_thread_daemon(void *arg) // done
 {
 	int x = 0;
 	do {
+		#if !defined(FF_NG)
 		do {
 			usleep(50000);
-			// seams more practical to sleep 250000 ms once
+			// seams more practical to sleep 250000 ms once...
 		} while (++x != 4);
+		#else // defined(FF_NG)
+		sleep(250);
+		// I don't know why this would not work
+		// if it does fail blame me
+		#endif // defined(FF_NG)
 		x = 0;
 		global_temperature =
 		    roc_rk3588s_pc_average_temperature() * 1000.0f;
@@ -573,10 +612,15 @@ void *roc_rk3588_pc_fan_thread_daemon(void *arg) // done
 {
 	int x = 0;
 	do {
+		#if !defined(FF_NG)
 		do {
 			usleep(50000);
 			// see comment rk3588s thread daemon
 		} while (++x != 4);
+		#else // defined(FF_NG)
+		sleep(250);
+		// see comment rk3588s thread daemon
+		#endif // defined(FF_NG)
 		x = 0;
 		global_temperature = roc_rk3588_pc_average_temperature()
 		* 1000.0f; // 0x447a0000 in IEEE-754
@@ -660,10 +704,15 @@ void* itx_3588j_fan_thread_daemon(void *arg) // done
 {
 	int x = 0;
 	do {
+		#if !defined(FF_NG)
 		do {
 			usleep(50000);
 			// see comment rk3588s thread daemon
 		} while (++x != 4);
+		#else // defined(FF_NG)
+		sleep(250);
+		// see comment rk3588s thread daemon
+		#endif // defined(FF_NG)
 		x = 0;
 		global_temperature =
 		  itx_3588j_average_temperature() * 1000.0f;
@@ -677,10 +726,10 @@ void set_ITX_3588J_fan_pwm(char pwm) // done
 	//const uint64_t tmp = (pwm << 8) - pwm;
 	//const uint64_t rpwm =
 	// (((tmp * 0x51eb851f) >> 0x20) >> 5) - (tmp >> 0x1f);
-	const int rpwm = pwm * (float) ((1 / 3) + 2);
+	int rpwm = pwm * (float) ((1 / 3) + 2);
 
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	const int fd = open(ITX_PWM, O_RDWR);
+	int fd = open(ITX_PWM, O_RDWR);
 	if (fd <= 0) {
 		printf(
 		  "set_ITX_3588J_fan_pwm: Can not open %s file\n", ITX_PWM);
@@ -706,11 +755,12 @@ void fan_CS_R1_3399JD4_MAIN_init() // done
 	popen("echo 1 > /sys/class/pwm/pwmchip0/pwm0/enable", "r");
 	// 5 leaked FPs and ever more popen bs and again no error checking!!!
 	#else // defined(FF_NG)
-	WRITE_NUM_FATAL(0, "/sys/class/pwm/pwmchip0/export");
-	WRITE_NUM_FATAL(100000, "/sys/class/pwm/pwmchip0/pwm0/period");
-	WRITE_NUM_FATAL(60000, "/sys/class/pwm/pwmchip0/pwm0/duty_cycle");
-	popen("echo inversed > /sys/class/pwm/pwmchip0/pwm0/polarity", "r");
-	WRITE_NUM_FATAL(1, "/sys/class/pwm/pwmchip0/pwm0/enable");
+	WRITE_NUM_FATAL(0,          "/sys/class/pwm/pwmchip0/export");
+	sleep(1);
+	WRITE_NUM_FATAL(100000,     "/sys/class/pwm/pwmchip0/pwm0/period");
+	WRITE_NUM_FATAL(60000,      "/sys/class/pwm/pwmchip0/pwm0/duty_cycle");
+	WRITE_STR_FATAL("inversed", "/sys/class/pwm/pwmchip0/pwm0/polarity");
+	WRITE_NUM_FATAL(1,          "/sys/class/pwm/pwmchip0/pwm0/enable");
 	#endif // defined(FF_NG)
 }
 
@@ -770,6 +820,7 @@ void* cs_r1_3399jd4_main_fan_thread_daemon(void *arg) // done
 	int i = 0;
 	do {
 		usleep(500000);
+		// guess you did the sensible thing here hihi
 		if (++i != 2)
 			continue;
 		i = 0;
@@ -1016,22 +1067,22 @@ void set_fan_pwm(uint8_t pwm_ch) // done
 // -----------------------------------------------------------------------------
 
 #if defined(FF_NG)
-static void usage(const char * name)
+static void usage(char * name)
 {
 	printf(
 	     "Usage: %s [BOARD] [PWM]\n"
 	     "Regulate fan speed for some firefly SBCs\n"
 	     "\n"
 	     "Supported Boards:\n"
-	     "    - CS-R1-3399JD4\n"
-	     "    - CS-R2-3399JD4\n"
-	     "    - ROC-RK3588S-PC\n"
-	     "    - ITX_3588J\n"
-	     "    - ROC-RK3588-PC\n"
+	     "  - CS-R1-3399JD4\n"
+	     "  - CS-R2-3399JD4\n"
+	     "  - ROC-RK3588S-PC\n"
+	     "  - ITX_3588J\n"
+	     "  - ROC-RK3588-PC\n"
 	     "\n"
 	     "Flags:\n"
-	     " -h --help     print usage\n"
-	     " -d --debug    enable debug mode\n",
+	     "  -h --help     print usage\n"
+	     "  -d --debug    enable debug mode\n",
 	     name);
 }
 #endif // defined(FF_NG)
@@ -1169,10 +1220,10 @@ int main(int argc, char **argv)
 		// it is better to either use a plain loop or getopts
 		#if !defined(FF_NG)
 		if (!strcmp(argv[2], "--debug")) {
-			const int in = atoi(argv[2]);
+			int in = atoi(argv[2]);
 		#else // defined(FF_NG)
 		if (debug_mode) {
-			const int in = atoi(argv[optind + 1]);
+			int in = atoi(argv[optind + 1]);
 		#endif // defined(FF_NG)
 			// and w0, w0, 0xff
 			set_fan_pwm(5);

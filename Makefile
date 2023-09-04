@@ -19,4 +19,4 @@ proper: build
 	$(CC) -o ff_fan_control_ng -DFF_NG $(LDFLAGS) $(CFLAGS) -Wno-unused-result ff_fan_control.c
 
 clean:
-	rm ff_fan_control
+	rm -rf ff_fan_control_old ff_fan_control_ng build
