@@ -32,6 +32,7 @@
  * but added by me to make this proper software
  *
  * changes include:
+ * - exploit mitigation
  * - proper and SAFE error handling
  * - proper writing to /sys and /proc files (without popen and shell commands)
  * - proper argument parsing
@@ -109,6 +110,8 @@ int get_temperature(char *path, long something) // done - unused
 		fprintf(stderr, "uart_open %s error\n", path);
 		// failed to adjust error message copy pasted from uart_open
 		perror("open:");
+		// 3 error messages again
+		// would fix but this is a redudant function
 		return -3;
 	}
 	char buf[20]; // presumeably 4 bytes padding
@@ -285,11 +288,16 @@ int sys_uart_read(int fd, char *buf, int nbytes, int it) // done
 	// char *bufp = buf
 	// bogus pointer to buf, I just presume this is a compiler op
 
+	#if !defined(FF_NG)
 	do {
 		FD_ZERO(&read_fds);
 		FD_SET(fd, &read_fds);
 		// you are setting up a completly new fd_set every iteration
-
+	#else // defined(FF_NG)
+	FD_ZERO(&read_fds);
+	FD_SET(fd, &read_fds);
+	do {
+	#endif // defined(FF_NG)
 		struct timeval tv = {
 			//.tv_sec =
 			// ((0x10624dd3 * it) >> 0x26) -  (it >> 0x1f),
@@ -349,18 +357,28 @@ int init_uart(const char *tty_path) // done
 	int fd = open(
 	    tty_path, O_RDWR & AT_SYMLINK_NOFOLLOW); // 0x102
 	if (fd < 0) {
+		#if !defined(FF_NG)
 		printf("%s:open error!\n", tty_path);
 		fprintf(stderr, "uart_open %s error\n", tty_path);
 		perror("open:");
 		// three error messages...
+		#else // defined(FF_NG)
+		fprintf(stderr,
+		    "init_uart %s: %s\n",
+		    tty_path, strerror(errno));
+		#endif // defined(FF_NG)
 		return -3;
 	}
 	if (1 > uart_set(fd, 1, 8, 0, 1)) {
+		#if !defined(FF_NG)
 		printf("%s:set error", tty_path);
 		// missing \n
 		fwrite("uart set failed!\n", 1, 17, stderr);
 		// fputs would be a bit more elagant
 		// also two error messages
+		#else // defined(FF_NG)
+		fprintf(stderr, "uart set error: %s\n", tty_path);
+		#endif // defined(FF_NG)
 		return -3;
 	}
 	return fd;
@@ -438,10 +456,12 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) // done
 {
 	int rpwm = 0;
 	char str[12] = "\0";
+	#if !defined(FF_NG)
 	int unused = 0;
 	// while radare saw it as the 16th place in str being zeroed
 	// I think its more likely that this is a var
 	// they never used and therefore was interpreted as str + 16
+	#endif // !defined(FF_NG)
 	#if !defined(FF_NG)
 	switch (ROC_RK3588S_PC_VERSION) {
 	case 0:
@@ -463,7 +483,7 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) // done
 		} else {
 			fprintf(stderr, "invalid ROC_RK3588S_PC_VERSION: %d\n",
 			    ROC_RK3588S_PC_VERSION);
-			return;
+			exit(1);
 		}
 	#endif // defined(FF_NG)
 
@@ -485,6 +505,12 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) // done
 	// also good practice(and compiler warnings)
 	// would demand another fail check here
 	// especially because this is a write which is likely to fail
+	#if defined(FF_NG)
+	if (res <= 0) {
+		fprintf(stderr, "failed to set pwm on : %s\n", RK3588_PWM);
+		exit(1);
+	}
+	#endif // defined(FF_NG)
 	close(fd);
 }
 
@@ -528,8 +554,8 @@ float roc_rk3588s_pc_average_temperature() // done
 	printf("sum = %f\n", ret);
 	#if !defined(FF_NG)
 	fclose(stream);
-	#endif // !defined(FF_NG)
 	// should be pclose()
+	#endif // !defined(FF_NG)
 	return ret;
 }
 
@@ -603,8 +629,10 @@ float roc_rk3588_pc_average_temperature() // done
 		ret /= (float) count;
 	}
 	printf("sum = %f\n", ret);
+	//#if !defined(FF_NG)
 	fclose(stream);
 	// see comment on rk3588s average temperature
+	//#endif // !defined(FF_NG)
 	return ret;
 }
 
@@ -631,8 +659,10 @@ void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) // done
 {
 	int rpwm = 0;
 	char str[10] = "\0";
+	#if !defined(FF_NG)
 	int unused = 0;
 	// read comments set_ROC_RK3588S_PC_fan_pwm
+	#endif // !defined(FF_NG)
 	rpwm = pwm * (float) ((1 / 3) + 2);
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
 	int fd = open(RK3588_PWM, O_RDWR & 0x900); // 0x902
@@ -648,6 +678,12 @@ void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) // done
 	sprintf(str, "%d", rpwm);
 	int res = write(fd, str, strlen(str));
 	// read comments set_ROC_RK3588S_PC_fan_pwm
+	#if defined(FF_NG)
+	if (res <= 0) {
+		fprintf(stderr, "failed to set pwm on : %s\n", RK3588_PWM);
+		exit(1);
+	}
+	#endif // defined(FF_NG)
 	close(fd);
 }
 // -----------------------------------------------------------------------------
@@ -769,6 +805,8 @@ float cs_r1_3399jd4_main_average_temperature() // done
 	float s[73];
 	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
+	char str[1000];
+
 	FILE * stream = fopen("/tmp/fan_temperature", "r");
 
 	if (!stream) {
@@ -778,11 +816,25 @@ float cs_r1_3399jd4_main_average_temperature() // done
 	}
 	int count = 0;
 	// see comment on rk3588s average temperature
-	char str[1000];
+	#if !defined(FF_NG)
 	while (fgets(str, 1000, stream)) {
+	// THIS IS AN EXPLOIT!!!!
+	//
+	// /tmp files with static names are not safe
+	// which ever daemon is supposed to write to it
+	// this not only allows you to set the temperature to 0
+	// and fry the board with alot of load
+	// but the fgets() loop above is incorrect and
+	// will turn every 1000 bytes of the file
+	// into a value in a stack allocated float array
+	#else // defined(FF_NG)
+	if (fgets(str, 1000, stream)) {
+	#endif // defined(FF_NG)
 		int temp_l = strlen(str);
 		str[temp_l - 1] = 0;
 		s[count] = atof(str); // << 2 because of float size
+		// the float array is never used again, making me wonder why it even exists...
+		// maybe only to make the buffer overflow exploit work?
 		printf("%f\n", s[count]);
 
 		if (s[count] <= 44.0f) { // 0x42300000
