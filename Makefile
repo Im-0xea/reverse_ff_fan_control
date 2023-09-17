@@ -2,7 +2,7 @@
 # see ./UNLICENSE file
 
 CC = cc
-CFLAGS = -Os -fno-stack-protector
+CFLAGS = -Os -pipe
 LDFLAGS = -flto
 
 all: recon proper

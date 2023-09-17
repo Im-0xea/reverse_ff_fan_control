@@ -18,9 +18,6 @@
  *  Copymiddle (CM) 2023 Xea. All wrongs rejected 
  *  see ./UNLICENSE file
  *
- *  "kill proprietary software"
- *  - Me (Xea)
- *
  *
  *  proprietary bin by: firefly "open source" team
  *
@@ -75,8 +72,9 @@ extern float PID_fan[10];
 float PID_fan[10];
 #endif
 
-void (*PID_fan_func)(int);
-char PID_debug_buff[1024]; // unused till now
+char PID_debug_buff[1024];
+int debug_buff_count;
+
 int ROC_RK3588S_PC_VERSION;
 uint32_t uart_head = 2863267968; // 0x8000aaaa
 int fan_switch = 1; // 0x01000000
@@ -88,15 +86,12 @@ int uart_cmd = 838860800; // 0x320000000 // unused till now
 char global_fan_speed[40]; // usused till now
 int global_temperature;
 int start = 1; // 0x01000000
-int debug_buff_count; // unused till now
 char firefly_fan[72];
 // -----------------------------------------------------------------------------
 
 // local static ----------------------------------------------------------------
 bool completed; // unused till now
 // __func__ might be needed
-int temperature; // unused till now
-int count; // unused till now
 int tmp; // unused till now
 // -----------------------------------------------------------------------------
 
@@ -208,39 +203,6 @@ int sys_cat_file(char *buf, size_t count, char *path)
 		} \
 	} while(0)
 #endif // defined(FF_NG)
-
-void init_time() // done
-{
-	struct itimerval itv = {
-		.it_interval = {
-			.tv_sec = 0, // sp+0x30
-			.tv_usec = PID_fan[32 / 4] // sp+0x28
-		},
-		.it_value = {
-			.tv_sec = 5, // sp+0x20
-			.tv_usec = 0 // sp+0x18
-		}
-	};
-	setitimer(ITIMER_REAL, &itv, 0);
-}
-
-void init_sigaction() // done
-{
-	struct sigaction sa;
-	sa.sa_handler = PID_fan_func; // sp+0x10
-	sa.sa_restorer = NULL; // sp+0x98
-	sigemptyset(&sa.sa_mask); // add 0x10 than sp+0x18
-	#if !defined(FF_NG)
-	sigaction(SIGALRM, &sa, NULL);
-	// might want an error check here
-	#else // defined(FF_NG)
-	if (sigaction(SIGALRM, &sa, NULL)) {
-		fputs("failed to setup signal action on SIGALARM",
-		      stderr);
-		exit(1);
-	}
-	#endif // defined(FF_NG)
-}
 
 int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
@@ -520,6 +482,7 @@ float roc_rk3588s_pc_average_temperature() // done
 	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
 	char str[1000];
+	int count = 0;
 	#if !defined(FF_NG)
 	FILE * stream = popen(
 	    "cat /sys/class/thermal/thermal_zone*/temp", "r");
@@ -530,7 +493,6 @@ float roc_rk3588s_pc_average_temperature() // done
 		// either through a misconfigured kernel or handware issues
 		// just returning 50 risks frying your board
 	}
-	int count = 0;
 	// this read should not return more than 64 bytes
 	while (fgets(str, 1000, stream)) {
 	#else // defined(FF_NG)
@@ -548,8 +510,8 @@ float roc_rk3588s_pc_average_temperature() // done
 		++count;
 	}
 	if (count > 1) {
-		ret -= s[count];
-		ret /= (float) count;
+		ret -= s[count]; // has to be zero
+		ret /= (float) count; // also has to be zero
 	}
 	printf("sum = %f\n", ret);
 	#if !defined(FF_NG)
@@ -561,19 +523,21 @@ float roc_rk3588s_pc_average_temperature() // done
 
 void *roc_rk3588s_pc_fan_thread_daemon(void *arg) // done
 {
+	#if !defined(FF_NG)
 	int x = 0;
+	#endif
 	do {
 		#if !defined(FF_NG)
 		do {
 			usleep(50000);
 			// seams more practical to sleep 250000 ms once...
 		} while (++x != 4);
+		x = 0;
 		#else // defined(FF_NG)
 		sleep(250);
 		// I don't know why this would not work
 		// if it does fail blame me
 		#endif // defined(FF_NG)
-		x = 0;
 		global_temperature =
 		    roc_rk3588s_pc_average_temperature() * 1000.0f;
 		// 0x447a0000 in IEEE-754
@@ -625,8 +589,8 @@ float roc_rk3588_pc_average_temperature() // done
 		++count;
 	}
 	if (count > 1) {
-		ret -= s[count];
-		ret /= (float) count;
+		ret -= s[count]; // has to be zero
+		ret /= (float) count; // also has to be zero
 	}
 	printf("sum = %f\n", ret);
 	//#if !defined(FF_NG)
@@ -727,8 +691,8 @@ float itx_3588j_average_temperature() // done
 		++count;
 	}
 	if (count > 1) {
-		ret -= s[count];
-		ret /= (float) count;
+		ret -= s[count]; // has to be zero
+		ret /= (float) count; // also has to be zero
 	}
 	printf("sum = %f\n", ret);
 	fclose(stream);
@@ -805,7 +769,6 @@ float cs_r1_3399jd4_main_average_temperature() // done
 	float s[73];
 	memset(s, 0, 73 * sizeof(float));
 	float ret = 0;
-	char str[1000];
 
 	FILE * stream = fopen("/tmp/fan_temperature", "r");
 
@@ -817,22 +780,24 @@ float cs_r1_3399jd4_main_average_temperature() // done
 	int count = 0;
 	// see comment on rk3588s average temperature
 	#if !defined(FF_NG)
+	char str[1000];
 	while (fgets(str, 1000, stream)) {
-	// THIS IS AN EXPLOIT!!!!
-	//
-	// /tmp files with static names are not safe
-	// which ever daemon is supposed to write to it
-	// this not only allows you to set the temperature to 0
-	// and fry the board with alot of load
-	// but the fgets() loop above is incorrect and
-	// will turn every 1000 bytes of the file
-	// into a value in a stack allocated float array
-	#else // defined(FF_NG)
-	if (fgets(str, 1000, stream)) {
+	#else //defined(FF_NG)
+	char str[64];
+	while (fgets(str, 64, stream) && count != 73) {
 	#endif // defined(FF_NG)
 		int temp_l = strlen(str);
 		str[temp_l - 1] = 0;
 		s[count] = atof(str); // << 2 because of float size
+		// THIS IS AN EXPLOIT!!!!
+		//
+		// /tmp files with static names are not safe
+		// which ever daemon is supposed to write to it
+		// this not only allows you to set the temperature to 0
+		// and fry the board with alot of load
+		// but the fgets() loop above parses and stores each string
+		// into a value in a stack allocated float array
+
 		// the float array is never used again, making me wonder why it even exists...
 		// maybe only to make the buffer overflow exploit work?
 		printf("%f\n", s[count]);
@@ -858,8 +823,8 @@ float cs_r1_3399jd4_main_average_temperature() // done
 	}
 
 	if (count > 1) {
-		ret -= s[count];
-		ret /= (float) count;
+		ret -= s[count]; // has to be 0
+		ret /= (float) count; // also has to be 0
 	}
 	printf("sum = %f\n", ret);
 	fclose(stream);
@@ -900,9 +865,16 @@ void set_CS_R1_3399JD4_MAIN_fan_pwm(uint8_t pwm) // done
 		#endif
 	}
 	sprintf(nbuf, "%d", rpwm);
-	int h2 = write(fd, nbuf, strlen(nbuf));
+	int res = write(fd, nbuf, strlen(nbuf));
 	// unused it seams
 	// read comments set_ROC_RK3588S_PC_fan_pwm
+	#if defined(FF_NG)
+	if (res <= 0) {
+		fprintf(stderr,
+		    "failed to set pwm on : %s\n", CS_R1_PWM);
+		exit(1);
+	}
+	#endif // defined(FF_NG)
 	close(fd);
 }
 // -----------------------------------------------------------------------------
@@ -993,6 +965,170 @@ void set_CS_R2_3399JD4_MAIN_fan_pwm(char *pwm, int sth) // done
 // -----------------------------------------------------------------------------
 
 // general functions -----------------------------------------------------------
+void set_fan_pwm(uint8_t pwm_ch) // done
+{
+	global_pwm = pwm_ch;
+	switch (board) {
+	case CS_R2_3399JD4: // 1
+		set_CS_R2_3399JD4_MAIN_fan_pwm(firefly_fan, pwm_ch);
+		break;
+	case CS_R1_3399JD4: // 0
+		set_CS_R1_3399JD4_MAIN_fan_pwm(pwm_ch);
+		break;
+	case ROC_RK3588S_PC: // 2
+		set_ROC_RK3588S_PC_fan_pwm(pwm_ch);
+		break;
+	case ITX_3588J: // 3
+		set_ITX_3588J_fan_pwm(pwm_ch);
+		break;
+	case ROC_RK3588_PC: // 4
+		set_ROC_RK3588_PC_fan_pwm(pwm_ch);
+		break;
+	}
+}
+
+float PID_control(float s0, float s1, float *s) // done
+{
+	// remember times 4
+	s[4] = s0 - s1;
+	if ((int) s[4] >= 999 && (int) s[4] <= 13492) {
+		s[4] = 0;
+		s[9] = 1;
+	}
+	s[7] += s[4];
+	if (debug_buff_count <= 1023) {
+		debug_buff_count +=
+		    sprintf(&PID_debug_buff[debug_buff_count],
+		            "SetValue: %f\n", s0);
+	}
+	if (debug_buff_count <= 1023) {
+		debug_buff_count +=
+		    sprintf(&PID_debug_buff[debug_buff_count],
+		            "ActualValue: %f\n", s1);
+	}
+	if (debug_buff_count <= 1023) {
+		debug_buff_count +=
+		    sprintf(&PID_debug_buff[debug_buff_count],
+		            "PID->Ek: %f\n", s[4]);
+	}
+	if (debug_buff_count <= 1023) {
+		    sprintf(&PID_debug_buff[debug_buff_count],
+		            "PID->LocSum: %f\n", s[7]);
+	}
+	float s2 = s[3] + (s[2] * (s[5] - s[4])) + (s[0] * s[4]) + (s[1] * s[7]);
+	s2 = -s2;
+	if (s[7] > 6000000.0f) {
+	// 0x4ab71b00 - 6000000
+		s[7] = 6000000.0f;
+	} else if (s[7] < -6000000.0f) { // assumed but reasonable
+	// 0xcab71b00 - -6000000
+		s[7] = -6000000.0f;
+	}
+	if (debug_buff_count <= 1023) {
+		debug_buff_count +=
+		    sprintf(&PID_debug_buff[debug_buff_count],
+		            "PIDLoc: %f\n", s2);
+	}
+	s[5] = s[4];
+	if (s[3] + (s2 / 1000.0f) < 50.0f) {
+	// 0x447a0000 - 1000
+	// 0x42480000 - 50
+		s[7] -= s[4];
+		return 50.0f;
+		// 0x42480034 - 50.0001983643
+	} else {
+		return (s2 / 1000.0f) + s[3];
+		// 0x447a0000
+	}
+}
+
+void PID_fan_func(int x) // done
+{
+	static float temperature;
+	temperature = global_temperature;
+	float h14 = PID_control(53000.0f, temperature, PID_fan);
+	// 0x474f0800 - 53000
+	if (h14 > 100.0f) {
+	// 0x42c80000 - 100
+		h14 = 100.0f;
+	} else if (h14 < 0) {
+		h14 = 0.0f;
+	}
+	if (debug_buff_count <= 1023) {
+		debug_buff_count +=
+		    sprintf(&PID_debug_buff[debug_buff_count],
+		            "pwm:%f \n", h14);
+	}
+	set_fan_pwm((char) h14);
+	// guess of what, fcvtzu and umov did
+	static int count;
+	if (debug_buff_count <= 1023) {
+		debug_buff_count +=
+		    sprintf(&PID_debug_buff[debug_buff_count],
+		            "count is %d\n", count++);
+	}
+	if (debug_buff_count <= 1023) {
+		debug_buff_count +=
+		    sprintf(&PID_debug_buff[debug_buff_count],
+		            "fan_switch is %d\n", fan_switch);
+	}
+	//if (count - (((((count * 0x057619f1) >> 0x20) >> 7) -
+	// (count >> 0x1f)) * 0x1770)) {
+	if (count % 6000 == 0) {
+		fan_switch = !fan_switch;
+		if (count == 30000) {
+			count = 0;
+		}
+	}
+	if (debug_buff_count <= 1023) {
+		debug_buff_count +=
+		    sprintf(&PID_debug_buff[debug_buff_count],
+		            "PID_fan_func exit\n");
+	}
+	FILE *stream = fopen("/tmp/fan_ctl_debug.xxx", "w");
+	if (!stream) {
+		puts("open error!");
+		return;
+	}
+	fputs(PID_debug_buff, stream);
+	debug_buff_count = 0;
+	printf("%s", PID_debug_buff);
+	fclose(stream);
+}
+
+void init_time() // done
+{
+	struct itimerval itv = {
+		.it_interval = {
+			.tv_sec = 0, // sp+0x30
+			.tv_usec = PID_fan[32 / 4] // sp+0x28
+		},
+		.it_value = {
+			.tv_sec = 5, // sp+0x20
+			.tv_usec = 0 // sp+0x18
+		}
+	};
+	setitimer(ITIMER_REAL, &itv, 0);
+}
+
+void init_sigaction() // done
+{
+	struct sigaction sa;
+	sa.sa_handler = PID_fan_func; // sp+0x10
+	sa.sa_restorer = NULL; // sp+0x98
+	sigemptyset(&sa.sa_mask); // add 0x10 than sp+0x18
+	#if !defined(FF_NG)
+	sigaction(SIGALRM, &sa, NULL);
+	// might want an error check here
+	#else // defined(FF_NG)
+	if (sigaction(SIGALRM, &sa, NULL)) {
+		fputs("failed to setup signal action on SIGALARM",
+		      stderr);
+		exit(1);
+	}
+	#endif // defined(FF_NG)
+}
+
 void PID_init(float pid[]) // done
 {
 	#if !defined(FF_NG)
@@ -1094,28 +1230,6 @@ void fan_init() // done
 	}
 	sleep(2);
 }
-
-void set_fan_pwm(uint8_t pwm_ch) // done
-{
-	global_pwm = pwm_ch;
-	switch (board) {
-	case CS_R2_3399JD4: // 1
-		set_CS_R2_3399JD4_MAIN_fan_pwm(firefly_fan, pwm_ch);
-		break;
-	case CS_R1_3399JD4: // 0
-		set_CS_R1_3399JD4_MAIN_fan_pwm(pwm_ch);
-		break;
-	case ROC_RK3588S_PC: // 2
-		set_ROC_RK3588S_PC_fan_pwm(pwm_ch);
-		break;
-	case ITX_3588J: // 3
-		set_ITX_3588J_fan_pwm(pwm_ch);
-		break;
-	case ROC_RK3588_PC: // 4
-		set_ROC_RK3588_PC_fan_pwm(pwm_ch);
-		break;
-	}
-}
 // -----------------------------------------------------------------------------
 
 #if defined(FF_NG)
@@ -1126,8 +1240,8 @@ static void usage(char * name)
 	     "Regulate fan speed for some firefly SBCs\n"
 	     "\n"
 	     "Supported Boards:\n"
-	     "  - CS-R1-3399JD4\n"
-	     "  - CS-R2-3399JD4\n"
+	     "  - CS_R1-3399JD4\n"
+	     "  - CS_R2-3399JD4\n"
 	     "  - ROC-RK3588S-PC\n"
 	     "  - ITX_3588J\n"
 	     "  - ROC-RK3588-PC\n"
@@ -1154,8 +1268,9 @@ int main(int argc, char **argv)
 		// I know this might be more readable
 		// but you are calling puts 5 times
 		// also this is not proper usage
-		// AND the CS-R*-3399JD4 boards probably don't have
+		// AND the CS_R*-3399JD4 boards probably don't have
 		// -MAIN in their name
+		// also the CS_R*-3399JD4 boards are writen wrong here
 		#else // defined(FF_NG)
 			usage(argv[0]);
 		#endif // defined(FF_NG)
@@ -1284,6 +1399,9 @@ int main(int argc, char **argv)
 			// and don't give any indication were the issue is
 			// also you could have used 1 or 2 pthreads
 			// you have 6 of which at max 2 are used
+
+			// even worse, Im certain there is no need for pthreads
+			// besides for uart on CS_R2_3399JD4
 			switch (board) {
 			case CS_R2_3399JD4: // 1
 				if (pthread_create(&t2, NULL,
@@ -1298,36 +1416,52 @@ int main(int argc, char **argv)
 				}
 				break;
 			case CS_R1_3399JD4: // 0
+				#if !defined(FF_NG)
 				if (pthread_create(&t1, NULL,
 				    cs_r1_3399jd4_main_fan_thread_daemon,
 				    NULL)!= 0) {
 					puts("thread3 create error");
 					return -1;
 				}
+				#else // defined(FF_NG)
+				cs_r1_3399jd4_main_fan_thread_daemon(NULL);
+				#endif // defined(FF_NG)
 				break;
 			case ROC_RK3588S_PC: // 2
+				#if !defined(FF_NG)
 				if (pthread_create(&t4, NULL,
 				    roc_rk3588s_pc_fan_thread_daemon,
 				    NULL) != 0) {
 					puts("thread4 create error");
 					return -1;
 				}
+				#else // defined(FF_NG)
+				roc_rk3588s_pc_fan_thread_daemon(NULL);
+				#endif // defined(FF_NG)
 				break;
 			case ITX_3588J: // 3
+				#if !defined(FF_NG)
 				if (pthread_create(&t5, NULL,
 				    itx_3588j_fan_thread_daemon,
 				    NULL) != 0) {
 					puts("thread5 create error");
 					return -1;
 				}
+				#else // defined(FF_NG)
+				itx_3588j_fan_thread_daemon(NULL);
+				#endif // defined(FF_NG)
 				break;
 			case ROC_RK3588_PC: // 4
+				#if !defined(FF_NG)
 				if (pthread_create(&t6, NULL,
 				    roc_rk3588_pc_fan_thread_daemon,
 				    NULL) != 0) {
 					puts("thread4 create error");
 					return -1;
 				}
+				#else // defined(FF_NG)
+				roc_rk3588_pc_fan_thread_daemon(NULL);
+				#endif // defined(FF_NG)
 				break;
 			}
 			while (1) sleep(1);
@@ -1349,36 +1483,52 @@ int main(int argc, char **argv)
 		}
 		break;
 	case CS_R1_3399JD4: // 0
+		#if !defined(FF_NG)
 		if (pthread_create(&t1, NULL,
 		    cs_r1_3399jd4_main_fan_thread_daemon,
 		    NULL) != 0) {
 			puts("thread3 create error");
 			return -1;
 		}
+		#else // defined(FF_NG)
+		cs_r1_3399jd4_main_fan_thread_daemon(NULL);
+		#endif // defined(FF_NG)
 		break;
 	case ROC_RK3588S_PC: // 2
+		#if !defined(FF_NG)
 		if (pthread_create(&t4, NULL,
 		    roc_rk3588s_pc_fan_thread_daemon,
 		    NULL) != 0) {
 			puts("thread4 create error");
 			return -1;
 		}
+		#else // defined(FF_NG)
+		roc_rk3588s_pc_fan_thread_daemon(NULL);
+		#endif // defined(FF_NG)
 		break;
 	case ITX_3588J: // 3
+		#if !defined(FF_NG)
 		if (pthread_create(&t5, NULL,
 		    itx_3588j_fan_thread_daemon,
 		    NULL) != 0) {
 			puts("thread5 create error");
 			return -1;
 		}
+		#else // defined(FF_NG)
+		itx_3588j_fan_thread_daemon(NULL);
+		#endif // defined(FF_NG)
 		break;
 	case ROC_RK3588_PC: // 4
+		#if !defined(FF_NG)
 		if (pthread_create(&t6, NULL,
 		    roc_rk3588_pc_fan_thread_daemon,
 		    NULL) != 0) {
 			puts("thread4 create error");
 			return -1;
 		}
+		#else // defined(FF_NG)
+		roc_rk3588_pc_fan_thread_daemon(NULL);
+		#endif // defined(FF_NG)
 		break;
 	}
 	set_fan_pwm(global_pwm);

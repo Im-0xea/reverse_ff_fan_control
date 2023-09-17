@@ -60,11 +60,13 @@ Issues found:
 - messy and incorrect logging
 - childish static argument parsing
 - usage has ./main as program name and doesn't explain anything only shows some possible calls
+- usage example calls have incorrect board names for CS_R\*\_3399JD4
 - constant reinit of an fd\_set
 - looping usleep several times instead of making the value bigger
 - duplicate cases everywhere
 - including -MAIN into board name
 - redudant pthreads
+- pthreads are not necassary at all
 - pthread error messages with non-sensical numbering in them
 - unused functions
 - unused variables
