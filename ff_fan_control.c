@@ -206,29 +206,75 @@ int sys_cat_file(char *buf, size_t count, char *path)
 
 int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
-	struct termios tio;
-	if (tcgetattr(fd, &tio)) {
+	struct termios old_tio;
+	if (tcgetattr(fd, &old_tio)) {
 		perror("Setupserial 1");
 		return -1;
 	}
-	void * h38 = NULL;
-	void * h10 = NULL;
-	void * h20 = NULL;
-	long h0 = 0;
-	int h2  = 0;
-	int h40; // uninitilized
-	h40 |= 0x880;
-	h40 &= 0xffffffcf;
+	struct termios new_tio = {};
+	// strange manual zeroing
+
 	if (x2 == 7) {
-		h40 |= 0x20;
+		// or 80h by 0x20
+		new_tio.c_cflag |= 0x20;
 	} else if (x2 == 8) {
-		h40 |= 0x30;
+		// or 80h by 0x30
+		new_tio.c_cflag |= CSIZE;
 	}
-	if (x3 /* something something */); // you are here
-
-
+	switch (x3) {
+	case 1:
+		// and 80h by 0xfffffeff
+		new_tio.c_cflag |= 0xfffffeff;
+		break;
+	case 2:
+		// or 80h by 0x100
+		new_tio.c_cflag |= 0x100;
+		// or 88h by 0x30
+		new_tio.c_iflag |= 0x30;
+		// or 80h by 0x200
+		new_tio.c_cflag |= 0x200;
+		break;
+	case 3:
+		// or 80h by 0x100
+		new_tio.c_cflag |= 0x100;
+		// or 88h by 0x30
+		new_tio.c_iflag |= 0x30;
+		// and 80h by 0xfffffdff
+		new_tio.c_cflag &= 0xfffffdff;
+		break;
+	}
+	switch (x1) {
+	case 0x960:
+		cfsetispeed(&new_tio, 0xb);
+		cfsetospeed(&new_tio, 0xb);
+		break;
+	case 0x12c0:
+		cfsetispeed(&new_tio, 0xc);
+		cfsetospeed(&new_tio, 0xc);
+		break;
+	case 0x2580:
+		cfsetispeed(&new_tio, 0xd);
+		cfsetospeed(&new_tio, 0xd);
+	case 0x1c200:
+		cfsetispeed(&new_tio, 0x1002);
+		cfsetospeed(&new_tio, 0x1002);
+	default:
+		cfsetispeed(&new_tio, 0xd);
+		cfsetospeed(&new_tio, 0xd);
+		break;
+	}
+	if (x4 == 1) {
+		// and 80h by 0xfffffbf
+		new_tio.c_cflag &= 0xfffffbff;
+	} else if (x4 == 2) {
+		// or 80h by 0x40
+		new_tio.c_cflag |= CSTOPB;
+	}
+	/// 80h + 0xe = 0
+	/// 80h + 0xf = 1
+	new_tio.c_lflag = 1;
 	tcflush(fd, 0);
-	if (tcsetattr(fd, 0, &tio)) {
+	if (tcsetattr(fd, 0, &new_tio)) {
 		perror("com set error");
 		return -1;
 	}
