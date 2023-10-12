@@ -204,6 +204,7 @@ int sys_cat_file(char *buf, size_t count, char *path)
 	} while(0)
 #endif // defined(FF_NG)
 
+// knowingly reimplemented a libc function...
 char *local_strstr(char *x1, char *x2, int x3) // done
 {
 	char *n = x1;
@@ -1223,78 +1224,48 @@ void PID_init(float pid[]) // done
 	#if !defined(FF_NG)
 	switch (board) {
 	case CS_R2_3399JD4: // 1
-		pid[0]=2.0f; 
-		pid[1]=0.12f; // 0x3df5c28f
-		pid[2]=1.0f;
-		pid[3]=48.0f; // 0x42400000
-		pid[4]=0.0f;
-		pid[5]=0.0f; 
-		pid[6]=0.0f;
-		pid[7]=0.0f;
-		pid[8]=0.0f;
-		pid[9]=1.4f; // 0x3fb33333
+		pid[0]=2.0f; pid[1]=0.12f; /* 0x3df5c28f */
+		pid[2]=1.0f; pid[3]=48.0f; /* 0x42400000 */
+		pid[4]=0.0f; pid[5]=0.0f;
+		pid[6]=0.0f; pid[7]=0.0f;
+		pid[8]=0.0f; pid[9]=1.4f; /* 0x3fb33333 */
 		break;
 	case CS_R1_3399JD4: // 0
-		pid[0]=2.0f; 
-		pid[1]=0.12f; // 0x3df5c28f
-		pid[2]=1.0f;
-		pid[3]=48.0f; // 0x42400000
-		pid[4]=0.0f;
-		pid[5]=0.0f; 
-		pid[6]=0.0f;
-		pid[7]=0.0f;
-		pid[8]=0.0f;
-		pid[9]=1.4f; // 0x3fb33333
+		pid[0]=2.0f; pid[1]=0.12f; /* 0x3df5c28f */
+		pid[2]=1.0f; pid[3]=48.0f; /* 0x42400000 */
+		pid[4]=0.0f; pid[5]=0.0f;
+		pid[6]=0.0f; pid[7]=0.0f;
+		pid[8]=0.0f; pid[9]=1.4f; /* 0x3fb33333 */
 		break;
 	case ROC_RK3588S_PC: // 2
-		pid[0]=2.0f; 
-		pid[1]=0.12f; // 0x3df5c28f
-		pid[2]=1.0f;
-		pid[3]=48.0f; // 0x42400000
-		pid[4]=0.0f;
-		pid[5]=0.0f; 
-		pid[6]=0.0f;
-		pid[7]=0.0f;
-		pid[8]=0.0f;
-		pid[9]=1.4f; // 0x3fb33333
+		pid[0]=2.0f; pid[1]=0.12f; /* 0x3df5c28f */
+		pid[2]=1.0f; pid[3]=48.0f; /* 0x42400000 */
+		pid[4]=0.0f; pid[5]=0.0f;
+		pid[6]=0.0f; pid[7]=0.0f;
+		pid[8]=0.0f; pid[9]=1.4f; /* 0x3fb33333 */
 		break;
 	case ITX_3588J: // 3
-		pid[0]=2.0f; 
-		pid[1]=0.12f; // 0x3df5c28f
-		pid[2]=1.0f;
-		pid[3]=48.0f; // 0x42400000
-		pid[4]=0.0f;
-		pid[5]=0.0f; 
-		pid[6]=0.0f;
-		pid[7]=0.0f;
-		pid[8]=0.0f;
-		pid[9]=1.4f; // 0x3fb33333
+		pid[0]=2.0f; pid[1]=0.12f; /* 0x3df5c28f */
+		pid[2]=1.0f; pid[3]=48.0f; /* 0x42400000 */
+		pid[4]=0.0f; pid[5]=0.0f;
+		pid[6]=0.0f; pid[7]=0.0f;
+		pid[8]=0.0f; pid[9]=1.4f; /* 0x3fb33333 */
 		break;
 	case ROC_RK3588_PC: // 4
-		pid[0]=2.0f; 
-		pid[1]=0.12f; // 0x3df5c28f
-		pid[2]=1.0f;
-		pid[3]=48.0f; // 0x42400000
-		pid[4]=0.0f;
-		pid[5]=0.0f; 
-		pid[6]=0.0f;
-		pid[7]=0.0f;
-		pid[8]=0.0f;
-		pid[9]=1.4f; // 0x3fb33333
+		pid[0]=2.0f; pid[1]=0.12f; /* 0x3df5c28f */
+		pid[2]=1.0f; pid[3]=48.0f; /* 0x42400000 */
+		pid[4]=0.0f; pid[5]=0.0f;
+		pid[6]=0.0f; pid[7]=0.0f;
+		pid[8]=0.0f; pid[9]=1.4f; /* 0x3fb33333 */
 		break;
 	}
-	// these happen to all be the same 
+	// these cases happen to all be the same piles
 	#else // defined(FF_NG)
-	pid[0]=2.0f; 
-	pid[1]=0.12f; // 0x3df5c28f
-	pid[2]=1.0f;
-	pid[3]=48.0f; // 0x42400000
-	pid[4]=0.0f;
-	pid[5]=0.0f; 
-	pid[6]=0.0f;
-	pid[7]=0.0f;
-	pid[8]=0.0f;
-	pid[9]=1.4f; // 0x3fb33333
+	pid[0]=2.0f; pid[1]=0.12f; /* 0x3df5c28f */
+	pid[2]=1.0f; pid[3]=48.0f; /* 0x42400000 */
+	pid[4]=0.0f; pid[5]=0.0f;
+	pid[6]=0.0f; pid[7]=0.0f;
+	pid[8]=0.0f; pid[9]=1.4f; /* 0x3fb33333 */
 	#endif // defined(FF_NG)
 }
 
@@ -1494,63 +1465,49 @@ int main(int argc, char **argv)
 			switch (board) {
 			case CS_R2_3399JD4: // 1
 				if (pthread_create(&t2, NULL,
-				    fan_thread_tx, NULL) != 0) {
+				    fan_thread_tx,
+				    firefly_fan) != 0) {
 					puts("thread1 create error");
 					return -1;
 				}
 				if (pthread_create(&t3, NULL,
-				    fan_thread_rx, NULL) != 0) {
+				    fan_thread_rx,
+				    firefly_fan) != 0) {
 					puts("thread2 create error");
 					return -1;
 				}
 				break;
 			case CS_R1_3399JD4: // 0
-				#if !defined(FF_NG)
 				if (pthread_create(&t1, NULL,
 				    cs_r1_3399jd4_main_fan_thread_daemon,
-				    NULL)!= 0) {
+				    firefly_fan)!= 0) {
 					puts("thread3 create error");
 					return -1;
 				}
-				#else // defined(FF_NG)
-				cs_r1_3399jd4_main_fan_thread_daemon(NULL);
-				#endif // defined(FF_NG)
 				break;
 			case ROC_RK3588S_PC: // 2
-				#if !defined(FF_NG)
 				if (pthread_create(&t4, NULL,
 				    roc_rk3588s_pc_fan_thread_daemon,
-				    NULL) != 0) {
+				    firefly_fan) != 0) {
 					puts("thread4 create error");
 					return -1;
 				}
-				#else // defined(FF_NG)
-				roc_rk3588s_pc_fan_thread_daemon(NULL);
-				#endif // defined(FF_NG)
 				break;
 			case ITX_3588J: // 3
-				#if !defined(FF_NG)
 				if (pthread_create(&t5, NULL,
 				    itx_3588j_fan_thread_daemon,
-				    NULL) != 0) {
+				    firefly_fan) != 0) {
 					puts("thread5 create error");
 					return -1;
 				}
-				#else // defined(FF_NG)
-				itx_3588j_fan_thread_daemon(NULL);
-				#endif // defined(FF_NG)
 				break;
 			case ROC_RK3588_PC: // 4
-				#if !defined(FF_NG)
 				if (pthread_create(&t6, NULL,
 				    roc_rk3588_pc_fan_thread_daemon,
-				    NULL) != 0) {
+				    firefly_fan) != 0) {
 					puts("thread4 create error");
 					return -1;
 				}
-				#else // defined(FF_NG)
-				roc_rk3588_pc_fan_thread_daemon(NULL);
-				#endif // defined(FF_NG)
 				break;
 			}
 			while (1) sleep(1);
@@ -1561,63 +1518,49 @@ int main(int argc, char **argv)
 	switch (board) {
 	case CS_R2_3399JD4: // 1
 		if (pthread_create(&t2, NULL,
-		    fan_thread_tx, NULL) != 0) {
+		    fan_thread_tx,
+		    firefly_fan) != 0) {
 			puts("thread1 create error");
 			return -1;
 		}
 		if (pthread_create(&t3, NULL,
-		    fan_thread_rx, NULL) != 0) {
+		    fan_thread_rx,
+		    firefly_fan) != 0) {
 			puts("thread2 create error");
 			return -1;
 		}
 		break;
 	case CS_R1_3399JD4: // 0
-		#if !defined(FF_NG)
 		if (pthread_create(&t1, NULL,
 		    cs_r1_3399jd4_main_fan_thread_daemon,
-		    NULL) != 0) {
+		    firefly_fan) != 0) {
 			puts("thread3 create error");
 			return -1;
 		}
-		#else // defined(FF_NG)
-		cs_r1_3399jd4_main_fan_thread_daemon(NULL);
-		#endif // defined(FF_NG)
 		break;
 	case ROC_RK3588S_PC: // 2
-		#if !defined(FF_NG)
 		if (pthread_create(&t4, NULL,
 		    roc_rk3588s_pc_fan_thread_daemon,
-		    NULL) != 0) {
+		    firefly_fan) != 0) {
 			puts("thread4 create error");
 			return -1;
 		}
-		#else // defined(FF_NG)
-		roc_rk3588s_pc_fan_thread_daemon(NULL);
-		#endif // defined(FF_NG)
 		break;
 	case ITX_3588J: // 3
-		#if !defined(FF_NG)
 		if (pthread_create(&t5, NULL,
 		    itx_3588j_fan_thread_daemon,
-		    NULL) != 0) {
+		    firefly_fan) != 0) {
 			puts("thread5 create error");
 			return -1;
 		}
-		#else // defined(FF_NG)
-		itx_3588j_fan_thread_daemon(NULL);
-		#endif // defined(FF_NG)
 		break;
 	case ROC_RK3588_PC: // 4
-		#if !defined(FF_NG)
 		if (pthread_create(&t6, NULL,
 		    roc_rk3588_pc_fan_thread_daemon,
-		    NULL) != 0) {
+		    firefly_fan) != 0) {
 			puts("thread4 create error");
 			return -1;
 		}
-		#else // defined(FF_NG)
-		roc_rk3588_pc_fan_thread_daemon(NULL);
-		#endif // defined(FF_NG)
 		break;
 	}
 	set_fan_pwm(global_pwm);
@@ -1627,13 +1570,13 @@ int main(int argc, char **argv)
 	if (board == CS_R2_3399JD4) {
 		if (pthread_create(&t2, NULL,
 		    fan_thread_tx,
-		    NULL) != 0) {
+		    firefly_fan) != 0) {
 			puts("thread1 create error");
 			return -1;
 		}
 		if (pthread_create(&t3, NULL,
 		    fan_thread_rx,
-		    NULL) != 0) {
+		    firefly_fan) != 0) {
 			puts("thread2 create error");
 			return -1;
 		}
