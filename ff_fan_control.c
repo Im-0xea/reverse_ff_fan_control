@@ -80,7 +80,7 @@ uint32_t uart_head = 2863267968; // 0x8000aaaa
 int fan_switch = 1; // 0x01000000
 int global_pwm = 50; // 0x32000000
 
-int global_debug; // unused till now
+int global_debug;
 int uart_end = 8432298; // 0xaaaa8000 // unused till now
 int uart_cmd = 838860800; // 0x320000000 // unused till now
 char global_fan_speed[40]; // usused till now
@@ -203,6 +203,30 @@ int sys_cat_file(char *buf, size_t count, char *path)
 		} \
 	} while(0)
 #endif // defined(FF_NG)
+
+char *local_strstr(char *x1, char *x2, int x3) // done
+{
+	char *n = x1;
+	int h20 = 0;
+	int h24 = 0;
+	if (x1 || x2) {
+		return x1;
+	}
+	while (x3--) {
+		char *h28 = x1;
+		char *h30 = x2;
+		
+		while (h28++ == h30++) {
+			if (++x3 > 2) {
+				return x1;
+			}
+		}
+		h24 = 0;
+		++h20;
+		x1 = n + h20;
+	}
+	return NULL;
+}
 
 int uart_set(int fd, int x1, int x2, int x3, int x4)
 {
@@ -928,16 +952,35 @@ void set_CS_R1_3399JD4_MAIN_fan_pwm(uint8_t pwm) // done
 // fan_CS_R2_3399JD4 functions -------------------------------------------------
 void *fan_thread_rx(void *arg)
 {
-	char *h140;
-	int h144 = 0;
-	// TODO
-	do {
-		h144 = 0;
+	char *ptr = (char*) arg;
+
+	char buf[36]; // 8 * 4 + 4 // alot of zero
+	int h50 = 0; // somehow this zero is .rodata
+	// alot of zero
+	char *arg_buf = ptr;
+	int ch2 = 0;
+	if (global_debug) {
+		fprintf(stderr, "%s: sys_uart_read start\n", arg_buf + 0x10);
+		// stderr is a guess, but a quite likely one
+	}
+	ch2 = sys_uart_read(arg_buf[0xc], buf, 0x32, 0x64);
+	usleep(500000);
+	if (ch2) {
+		arg_buf[0xa] = 0;
 		if (global_debug) {
-			fprintf(stderr, "%s: sys_uart_read start\n", h140);
+			fprintf(stderr, "ret: %d\n", ch2);
+			// stderr is a guess, but a quite likely one
 		}
-		//sys_uart_read();
-	} while (1);
+		char *h40 = local_strstr(buf, (char *)&uart_head, ch2);
+		if (h40) {
+			if (global_debug) {
+				fprintf(stderr, "%s: success %d\t", arg_buf + 0x10, ch2);
+				// stderr is a guess, but a quite likely one
+			}
+			char *format = NULL;
+			// no clue where this goes
+		}
+	}
 }
 
 void *fan_thread_tx(void *arg) // done
