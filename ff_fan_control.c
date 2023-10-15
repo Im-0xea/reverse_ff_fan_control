@@ -96,6 +96,83 @@ int tmp; // unused till now
 // -----------------------------------------------------------------------------
 
 // utility functions -----------------------------------------------------------
+int uart_set(int fd, int x1, int x2, char x3, int x4)
+{
+	struct termios old_tio;
+	if (tcgetattr(fd, &old_tio)) {
+		perror("Setupserial 1");
+		return -1;
+	}
+	struct termios new_tio = {};
+	// strange manual zeroing
+
+	if (x2 == 7) {
+		// or 80h by 0x20
+		new_tio.c_cflag |= 0x20;
+	} else if (x2 == 8) {
+		// or 80h by 0x30
+		new_tio.c_cflag |= CSIZE;
+	}
+	switch (x3) {
+	case 1:
+		// and 80h by 0xfffffeff
+		new_tio.c_cflag |= 0xfffffeff;
+		break;
+	case 2:
+		// or 80h by 0x100
+		new_tio.c_cflag |= 0x100;
+		// or 88h by 0x30
+		new_tio.c_iflag |= 0x30;
+		// or 80h by 0x200
+		new_tio.c_cflag |= 0x200;
+		break;
+	case 3:
+		// or 80h by 0x100
+		new_tio.c_cflag |= 0x100;
+		// or 88h by 0x30
+		new_tio.c_iflag |= 0x30;
+		// and 80h by 0xfffffdff
+		new_tio.c_cflag &= 0xfffffdff;
+		break;
+	}
+	switch (x1) {
+	case 0x960:
+		cfsetispeed(&new_tio, 0xb);
+		cfsetospeed(&new_tio, 0xb);
+		break;
+	case 0x12c0:
+		cfsetispeed(&new_tio, 0xc);
+		cfsetospeed(&new_tio, 0xc);
+		break;
+	case 0x2580:
+		cfsetispeed(&new_tio, 0xd);
+		cfsetospeed(&new_tio, 0xd);
+	case 0x1c200:
+		cfsetispeed(&new_tio, 0x1002);
+		cfsetospeed(&new_tio, 0x1002);
+	default:
+		cfsetispeed(&new_tio, 0xd);
+		cfsetospeed(&new_tio, 0xd);
+		break;
+	}
+	if (x4 == 1) {
+		// and 80h by 0xfffffbf
+		new_tio.c_cflag &= 0xfffffbff;
+	} else if (x4 == 2) {
+		// or 80h by 0x40
+		new_tio.c_cflag |= CSTOPB;
+	}
+	/// 80h + 0xe = 0
+	/// 80h + 0xf = 1
+	new_tio.c_lflag = 1;
+	tcflush(fd, 0);
+	if (tcsetattr(fd, 0, &new_tio)) {
+		perror("com set error");
+		return -1;
+	}
+	return 0;
+}
+
 #if !defined(FF_NG)
 int get_temperature(char *path, long something) // done - unused
 {
@@ -121,6 +198,22 @@ int get_temperature(char *path, long something) // done - unused
 	}
 	close(fd);
 	return ret;
+}
+
+int sys_uart_open(char *path, int h14, int h10)
+{
+	int fd = open(path, 0x102);
+	if (fd < 0) {
+		fprintf(stderr, "uart_open %s error\n", path);
+		perror("open:");
+		return -3;
+	}
+	if (uart_set(fd, h14, 8, h10, 1) >= 0) {
+		fwrite("uart set failed!\n", 1, 0x11, stderr);
+		return -4;
+	}
+	printf("%s[%d]: fd = %d\n", "sys_uart_open", 0x102, fd);
+	return fd;
 }
 
 int sys_uart_close(int fd) // done - unused
@@ -227,83 +320,6 @@ char *local_strstr(char *x1, char *x2, int x3) // done
 		x1 = n + h20;
 	}
 	return NULL;
-}
-
-int uart_set(int fd, int x1, int x2, int x3, int x4)
-{
-	struct termios old_tio;
-	if (tcgetattr(fd, &old_tio)) {
-		perror("Setupserial 1");
-		return -1;
-	}
-	struct termios new_tio = {};
-	// strange manual zeroing
-
-	if (x2 == 7) {
-		// or 80h by 0x20
-		new_tio.c_cflag |= 0x20;
-	} else if (x2 == 8) {
-		// or 80h by 0x30
-		new_tio.c_cflag |= CSIZE;
-	}
-	switch (x3) {
-	case 1:
-		// and 80h by 0xfffffeff
-		new_tio.c_cflag |= 0xfffffeff;
-		break;
-	case 2:
-		// or 80h by 0x100
-		new_tio.c_cflag |= 0x100;
-		// or 88h by 0x30
-		new_tio.c_iflag |= 0x30;
-		// or 80h by 0x200
-		new_tio.c_cflag |= 0x200;
-		break;
-	case 3:
-		// or 80h by 0x100
-		new_tio.c_cflag |= 0x100;
-		// or 88h by 0x30
-		new_tio.c_iflag |= 0x30;
-		// and 80h by 0xfffffdff
-		new_tio.c_cflag &= 0xfffffdff;
-		break;
-	}
-	switch (x1) {
-	case 0x960:
-		cfsetispeed(&new_tio, 0xb);
-		cfsetospeed(&new_tio, 0xb);
-		break;
-	case 0x12c0:
-		cfsetispeed(&new_tio, 0xc);
-		cfsetospeed(&new_tio, 0xc);
-		break;
-	case 0x2580:
-		cfsetispeed(&new_tio, 0xd);
-		cfsetospeed(&new_tio, 0xd);
-	case 0x1c200:
-		cfsetispeed(&new_tio, 0x1002);
-		cfsetospeed(&new_tio, 0x1002);
-	default:
-		cfsetispeed(&new_tio, 0xd);
-		cfsetospeed(&new_tio, 0xd);
-		break;
-	}
-	if (x4 == 1) {
-		// and 80h by 0xfffffbf
-		new_tio.c_cflag &= 0xfffffbff;
-	} else if (x4 == 2) {
-		// or 80h by 0x40
-		new_tio.c_cflag |= CSTOPB;
-	}
-	/// 80h + 0xe = 0
-	/// 80h + 0xf = 1
-	new_tio.c_lflag = 1;
-	tcflush(fd, 0);
-	if (tcsetattr(fd, 0, &new_tio)) {
-		perror("com set error");
-		return -1;
-	}
-	return 0;
 }
 
 void fan_alarm(char *fan) // done
@@ -964,13 +980,13 @@ void *fan_thread_rx(void *arg)
 		if (global_debug) {
 			fprintf(stderr,
 			// stderr is a guess, but a quite likely one
-				"%s: sys_uart_read start\n", arg_buf + 0x10);
+				"%s: sys_uart_read start\n", arg_buf + 16);
 		}
-		ch2 = sys_uart_read(arg_buf[0xc], buf, 0x32, 0x64);
+		ch2 = sys_uart_read(arg_buf[12], buf, 50, 100);
 		usleep(500000);
 		int format;
 		if (ch2) {
-			arg_buf[0xa] = 0;
+			arg_buf[10] = 0;
 			if (global_debug) {
 				fprintf(stderr,
 				// stderr is a guess, but a quite likely one
@@ -981,15 +997,15 @@ void *fan_thread_rx(void *arg)
 				if (global_debug) {
 					fprintf(stderr,
 					// stderr is a guess, but a quite likely one
-						"%s: success %d\t", arg_buf + 0x10, ch2);
+						"%s: success %d\t", arg_buf + 16, ch2);
 				}
 				format = 0;
 				while (format <= 5) {
-					if (format * 2 > 0x2c) { // << 1
+					if (format * 2 > 44) { // << 1
 						global_fan_speed[format] =
 							((*((format * 2) + 4 + h40)) << 8) | *(((format * 2) + 5) + h40);
 					}
-					if (global_fan_speed[format] <= 0x513) {
+					if (global_fan_speed[format] <= 1299) {
 						fan_alarm(arg_buf);
 					}
 					if (global_debug) {
@@ -1000,7 +1016,7 @@ void *fan_thread_rx(void *arg)
 					++format;
 				}
 				if (global_debug) {
-					fputc(0xa, stderr);
+					fputc('\n', stderr);
 					// stderr is a guess, but a quite likely one
 				}
 			}
@@ -1021,12 +1037,12 @@ void *fan_thread_rx(void *arg)
 				global_fan_speed[format]);
 			++format;
 		}
-		FILE *h48 = fopen("/var/netrecovery/collector/fan.prom.xxx", "r");
-		if (!h48) {
+		FILE *fan_prom = fopen("/var/netrecovery/collector/fan.prom.xxx", "r");
+		if (!fan_prom) {
 			puts("open error!");
 		} else {
-			fputs(s, h48);
-			fclose(h48);
+			fputs(s, fan_prom);
+			fclose(fan_prom);
 			rename("/var/netrecovery/collector/fan.prom.xxx",
 			       "/var/netrecovery/collector/fan.prom");
 		}
