@@ -83,7 +83,7 @@ int global_pwm = 50; // 0x32000000
 int global_debug;
 int uart_end = 8432298; // 0xaaaa8000 // unused till now
 int uart_cmd = 838860800; // 0x320000000 // unused till now
-char global_fan_speed[40]; // usused till now
+int global_fan_speed[10];
 int global_temperature;
 int start = 1; // 0x01000000
 char firefly_fan[72];
@@ -953,35 +953,84 @@ void set_CS_R1_3399JD4_MAIN_fan_pwm(uint8_t pwm) // done
 // fan_CS_R2_3399JD4 functions -------------------------------------------------
 void *fan_thread_rx(void *arg)
 {
+	char s[200]; // this size is a guess
 	char *ptr = (char*) arg;
-
 	char buf[36]; // 8 * 4 + 4 // alot of zero
 	int h50 = 0; // somehow this zero is .rodata
 	// alot of zero
-	char *arg_buf = ptr;
-	int ch2 = 0;
-	if (global_debug) {
-		fprintf(stderr, "%s: sys_uart_read start\n", arg_buf + 0x10);
-		// stderr is a guess, but a quite likely one
-	}
-	ch2 = sys_uart_read(arg_buf[0xc], buf, 0x32, 0x64);
-	usleep(500000);
-	if (ch2) {
-		arg_buf[0xa] = 0;
+	do {
+		char *arg_buf = ptr;
+		int ch2 = 0;
 		if (global_debug) {
-			fprintf(stderr, "ret: %d\n", ch2);
+			fprintf(stderr,
 			// stderr is a guess, but a quite likely one
+				"%s: sys_uart_read start\n", arg_buf + 0x10);
 		}
-		char *h40 = local_strstr(buf, (char *)&uart_head, ch2);
-		if (h40) {
+		ch2 = sys_uart_read(arg_buf[0xc], buf, 0x32, 0x64);
+		usleep(500000);
+		int format;
+		if (ch2) {
+			arg_buf[0xa] = 0;
 			if (global_debug) {
-				fprintf(stderr, "%s: success %d\t", arg_buf + 0x10, ch2);
+				fprintf(stderr,
 				// stderr is a guess, but a quite likely one
+					"ret: %d\n", ch2);
 			}
-			char *format = NULL;
-			// no clue where this goes
+			char *h40 = local_strstr(buf, (char *)&uart_head, ch2);
+			if (h40) {
+				if (global_debug) {
+					fprintf(stderr,
+					// stderr is a guess, but a quite likely one
+						"%s: success %d\t", arg_buf + 0x10, ch2);
+				}
+				format = 0;
+				while (format <= 5) {
+					if (format * 2 > 0x2c) { // << 1
+						global_fan_speed[format] =
+							((*((format * 2) + 4 + h40)) << 8) | *(((format * 2) + 5) + h40);
+					}
+					if (global_fan_speed[format] <= 0x513) {
+						fan_alarm(arg_buf);
+					}
+					if (global_debug) {
+						fprintf(stderr,
+						// stderr is a guess, but a quite likely one
+							"speed %d: %d ", format + 1, global_fan_speed[format]);
+					}
+					++format;
+				}
+				if (global_debug) {
+					fputc(0xa, stderr);
+					// stderr is a guess, but a quite likely one
+				}
+			}
+		} else {
+			fan_alarm(arg_buf);
+			format = 0;
+			while (format <= 3) {
+				global_fan_speed[format + 6] = 0;
+				++format;
+			}
 		}
-	}
+		int h24 = 0;
+		format = 0;
+		while (format <= 9) {
+			h24 += sprintf(s + h24,
+				"node_cluster_fan_speed{fan=\"fan%d\"} %d.0\n",
+				format + 1,
+				global_fan_speed[format]);
+			++format;
+		}
+		FILE *h48 = fopen("/var/netrecovery/collector/fan.prom.xxx", "r");
+		if (!h48) {
+			puts("open error!");
+		} else {
+			fputs(s, h48);
+			fclose(h48);
+			rename("/var/netrecovery/collector/fan.prom.xxx",
+			       "/var/netrecovery/collector/fan.prom");
+		}
+	} while (1);
 }
 
 void *fan_thread_tx(void *arg) // done
