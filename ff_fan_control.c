@@ -174,6 +174,22 @@ int uart_set(int fd, int x1, int x2, char x3, int x4)
 }
 
 #if !defined(FF_NG)
+void debug_print_buf(char *x0, char *x1, int x2)
+{
+	if (x0) {
+		printf("\n****%s***len = %d*****************", x0, x2);
+	}
+	int f = 0;
+	while (f < x2) {
+		if (f & 0xf) {
+			putchar('\n');
+		}
+		printf("%02x ", x1[f]);
+		++f;
+	}
+	puts("\n");
+}
+
 int get_temperature(char *path, long something) // done - unused
 {
 	int fd = open(path, O_RDONLY);
