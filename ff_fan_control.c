@@ -837,7 +837,16 @@ void set_ITX_3588J_fan_pwm(char pwm) // done
 	}
 	char buf[20]; // guessing 4 bytes padding
 	sprintf(buf, "%d", rpwm);
+	#if !defined(FF_NG)
 	write(fd, buf, strlen(buf));
+	#else // defined(FF_NG)
+	int res = write(fd, buf, strlen(buf));
+	if (res <= 0) {
+		fprintf(stderr,
+		    "failed to set pwm on : %s\n", ITX_PWM);
+		exit(1);
+	}
+	#endif // defined(FF_NG)
 	close(fd);
 	// read comments set_ROC_RK3588S_PC_fan_pwm
 }
