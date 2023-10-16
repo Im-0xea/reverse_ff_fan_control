@@ -98,7 +98,7 @@ int tmp; // unused till now
 // -----------------------------------------------------------------------------
 
 // utility functions -----------------------------------------------------------
-static int uart_set(int fd, int x1, int x2, char x3, int x4)
+static int uart_set(int fd, int baud, int x2, char x3, int x4)
 {
 	struct termios old_tio;
 	if (tcgetattr(fd, &old_tio)) {
@@ -128,7 +128,7 @@ static int uart_set(int fd, int x1, int x2, char x3, int x4)
 		new_tio.c_cflag &= ~CREAD; // 0xfffffdff
 		break;
 	}
-	switch (x1) {
+	switch (baud) {
 	case 2400:
 		cfsetispeed(&new_tio, 11);
 		cfsetospeed(&new_tio, 11);
@@ -166,6 +166,7 @@ static int uart_set(int fd, int x1, int x2, char x3, int x4)
 
 // the following functions are completly unused
 #if !defined(FF_NG)
+
 static void debug_print_buf(char *buf, char *hex_buf, int length) // done
 {
 	if (buf) {
@@ -182,13 +183,13 @@ static void debug_print_buf(char *buf, char *hex_buf, int length) // done
 	puts("\n");
 }
 
-int get_temperature(char *path, long something) // done
+int get_temperature(char *path) // done
 {
 	int fd = open(path, O_RDONLY);
 	if (fd < 0) {
 		printf("%s:open error!\n", path);
 		fprintf(stderr, "uart_open %s error\n", path);
-		// failed to adjust error message copy pasted from uart_open
+		// didn't adjust error message copy pasted from uart_open
 		perror("open:");
 		// 3 error messages again
 		// would fix but this is a redudant function
@@ -208,7 +209,7 @@ int get_temperature(char *path, long something) // done
 	return ret;
 }
 
-int sys_uart_open(char *path, int h14, int h10)
+int sys_uart_open(char *path, int baud, int h10) // done
 {
 	int fd = open(path, AT_SYMLINK_NOFOLLOW | O_RDWR); // 0x102
 	if (fd < 0) {
@@ -216,11 +217,12 @@ int sys_uart_open(char *path, int h14, int h10)
 		perror("open:");
 		return -3;
 	}
-	if (uart_set(fd, h14, 8, h10, 1) >= 0) {
+	if (uart_set(fd, baud, 8, h10, 1) >= 0) {
 		fwrite("uart set failed!\n", 1, 17, stderr);
 		return -4;
 	}
-	printf("%s[%d]: fd = %d\n", "sys_uart_open", AT_SYMLINK_NOFOLLOW | O_RDWR, fd); // 0x102
+	printf("%s[%d]: fd = %d\n", "sys_uart_open",
+	       AT_SYMLINK_NOFOLLOW | O_RDWR, fd); // 0x102
 	return fd;
 }
 
@@ -306,26 +308,26 @@ int sys_cat_file(char *buf, size_t count, char *path)
 	} while(0)
 #endif // defined(FF_NG)
 
-char *local_strstr(char *x1, char *x2, int x3) // done
+char *local_strstr(char *haystack, char *needle, int x3) // done
 {
-	char *n = x1;
+	char *n = haystack;
 	int h20 = 0;
 	int h24 = 0;
-	if (x1 || x2) {
-		return x1;
+	if (!haystack || !needle) {
+		return haystack;
 	}
 	while (x3--) {
-		char *h28 = x1;
-		char *h30 = x2;
+		char *h28 = haystack;
+		char *h30 = needle;
 		
-		while (h28++ == h30++) {
+		while (*h28++ == *h30++) {
 			if (++x3 > 2) {
-				return x1;
+				return haystack;
 			}
 		}
 		h24 = 0;
 		++h20;
-		x1 = n + h20;
+		haystack = n + h20;
 	}
 	return NULL;
 }
@@ -349,7 +351,7 @@ int sys_uart_read(int fd, char *buf, int nbytes, int it) // done
 	do {
 		FD_ZERO(&read_fds);
 		FD_SET(fd, &read_fds);
-		// you are setting up a completly new fd_set every iteration
+		// this sets up a completly new fd_set every iteration
 	#else // defined(FF_NG)
 	FD_ZERO(&read_fds);
 	FD_SET(fd, &read_fds);
@@ -426,7 +428,7 @@ int init_uart(const char *tty_path) // done
 		#endif // defined(FF_NG)
 		return -3;
 	}
-	if (1 > uart_set(fd, 1, 8, 0, 1)) {
+	if (1 > uart_set(fd, 115200, 8, 0, 1)) {
 		#if !defined(FF_NG)
 		printf("%s:set error", tty_path);
 		// missing \n
@@ -475,7 +477,8 @@ int get_ROC_RK3588S_PC_version() // done
 	}
 	fgets(volt_str, 1000, iv);
 	#else // defined(FF_NG)
-	CAT_FILE_FATAL(volt_str, 1000, "/sys/bus/iio/devices/iio:device0/in_voltage5_raw");
+	CAT_FILE_FATAL(volt_str, 1000,
+	               "/sys/bus/iio/devices/iio:device0/in_voltage5_raw");
 	#endif // defined(FF_NG)
 	// this read should not return more than 64 bytes
 	size_t volt_len = strlen(volt_str);
@@ -545,7 +548,8 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) // done
 	#endif // defined(FF_NG)
 
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	int fd = open(RK3588_PWM, O_RDWR | AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT); // 0x902
+	int fd = open(RK3588_PWM,
+	              O_RDWR | AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT); // 0x902
 	if (fd <= 0) {
 		printf(
 		  "set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n",
@@ -724,7 +728,8 @@ void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) // done
 	#endif // !defined(FF_NG)
 	rpwm = pwm * (float) ((1 / 3) + 2);
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	int fd = open(RK3588_PWM, O_RDWR | AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT); // 0x902
+	int fd = open(RK3588_PWM,
+	              O_RDWR | AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT); // 0x902
 	if (fd <= 0) {
 		printf(
 		  "set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n",
@@ -893,8 +898,8 @@ float cs_r1_3399jd4_main_average_temperature() // done
 		// but the fgets() loop above parses and stores each string
 		// into a value in a stack allocated float array
 
-		// the float array is never used again, making me wonder why it even exists...
-		// maybe only to make the buffer overflow exploit work?
+		// the float array is never used again
+		// it only exists to make the buffer overflow exploit work?
 		printf("%f\n", s[count]);
 
 		if (s[count] <= 44.0f) { // 0x42300000
@@ -949,7 +954,8 @@ void set_CS_R1_3399JD4_MAIN_fan_pwm(uint8_t pwm) // done
 	long h0 = 0;
 	char nbuf[20] = "\0";
 	printf("set_PWM: %d\n pwm: %d\n", rpwm, pwm);
-	int fd = open(RK3588_PWM, O_RDWR | AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT); // 0x902
+	int fd = open(RK3588_PWM,
+	              O_RDWR | AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT); // 0x902
 	if (fd < 1) {
 		printf(
 		  "set_CS_R1_3399JD4_MAIN_fan_pwm: Can not open %s file\n",
@@ -1011,7 +1017,7 @@ void *fan_thread_rx(void *arg)
 				while (format <= 5) {
 					if (format * 2 > 44) { // << 1
 						global_fan_speed[format] =
-							((*((format * 2) + 4 + h40)) << 8) | *(((format * 2) + 5) + h40);
+						    ((*((format * 2) + 4 + h40)) << 8) | *(((format * 2) + 5) + h40);
 					}
 					if (global_fan_speed[format] <= 1299) {
 						fan_alarm(arg_buf);
@@ -1019,7 +1025,7 @@ void *fan_thread_rx(void *arg)
 					if (global_debug) {
 						fprintf(stderr,
 						// stderr is a guess, but a quite likely one
-							"speed %d: %d ", format + 1, global_fan_speed[format]);
+						    "speed %d: %d ", format + 1, global_fan_speed[format]);
 					}
 					++format;
 				}
