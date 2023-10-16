@@ -38,6 +38,7 @@
  */
 
 // headers ---------------------------------------------------------------------
+#define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -53,6 +54,7 @@
 #if defined(FF_NG)
 #include <getopt.h>
 #endif
+
 // -----------------------------------------------------------------------------
 
 // top level declarations ------------------------------------------------------
@@ -107,60 +109,49 @@ static int uart_set(int fd, int x1, int x2, char x3, int x4)
 	// strange manual zeroing
 
 	if (x2 == 7) {
-		// or 80h by 0x20
-		new_tio.c_cflag |= 0x20;
+		new_tio.c_cflag |= CS6; // 0x20
 	} else if (x2 == 8) {
-		// or 80h by 0x30
-		new_tio.c_cflag |= CSIZE;
+		new_tio.c_cflag |= CS6 | 0x10 ; // 0x30
 	}
 	switch (x3) {
 	case 1:
-		// and 80h by 0xfffffeff
-		new_tio.c_cflag |= 0xfffffeff;
+		new_tio.c_cflag |= ~CSTOPB; // 0xfffffeff
 		break;
 	case 2:
-		// or 80h by 0x100
-		new_tio.c_cflag |= 0x100;
-		// or 88h by 0x30
-		new_tio.c_iflag |= 0x30;
-		// or 80h by 0x200
-		new_tio.c_cflag |= 0x200;
+		new_tio.c_cflag |= CSTOPB; // 0x100
+		new_tio.c_iflag |= PARMRK | INPCK; // 0x30
+		new_tio.c_cflag |= CREAD; // 0x200
 		break;
 	case 3:
-		// or 80h by 0x100
-		new_tio.c_cflag |= 0x100;
-		// or 88h by 0x30
-		new_tio.c_iflag |= 0x30;
-		// and 80h by 0xfffffdff
-		new_tio.c_cflag &= 0xfffffdff;
+		new_tio.c_cflag |= CSTOPB; // 0x100
+		new_tio.c_iflag |= PARMRK | INPCK; // 0x30
+		new_tio.c_cflag &= ~CREAD; // 0xfffffdff
 		break;
 	}
 	switch (x1) {
-	case 0x960:
-		cfsetispeed(&new_tio, 0xb);
-		cfsetospeed(&new_tio, 0xb);
+	case 2400:
+		cfsetispeed(&new_tio, 11);
+		cfsetospeed(&new_tio, 11);
 		break;
-	case 0x12c0:
-		cfsetispeed(&new_tio, 0xc);
-		cfsetospeed(&new_tio, 0xc);
+	case 4800:
+		cfsetispeed(&new_tio, 12);
+		cfsetospeed(&new_tio, 12);
 		break;
-	case 0x2580:
-		cfsetispeed(&new_tio, 0xd);
-		cfsetospeed(&new_tio, 0xd);
-	case 0x1c200:
-		cfsetispeed(&new_tio, 0x1002);
-		cfsetospeed(&new_tio, 0x1002);
+	case 9600:
+		cfsetispeed(&new_tio, 13);
+		cfsetospeed(&new_tio, 13);
+	case 115200:
+		cfsetispeed(&new_tio, 4098);
+		cfsetospeed(&new_tio, 4098);
 	default:
-		cfsetispeed(&new_tio, 0xd);
-		cfsetospeed(&new_tio, 0xd);
+		cfsetispeed(&new_tio, 13);
+		cfsetospeed(&new_tio, 13);
 		break;
 	}
 	if (x4 == 1) {
-		// and 80h by 0xfffffbf
-		new_tio.c_cflag &= 0xfffffbff;
+		new_tio.c_cflag &= ~PARENB; // 0xfffffbff
 	} else if (x4 == 2) {
-		// or 80h by 0x40
-		new_tio.c_cflag |= CSTOPB;
+		new_tio.c_cflag |= CS7; // 0x40
 	}
 	/// 80h + 0xe = 0
 	/// 80h + 0xf = 1
@@ -173,24 +164,25 @@ static int uart_set(int fd, int x1, int x2, char x3, int x4)
 	return 0;
 }
 
+// the following functions are completly unused
 #if !defined(FF_NG)
-static void debug_print_buf(char *x0, char *x1, int x2)
+static void debug_print_buf(char *buf, char *hex_buf, int length) // done
 {
-	if (x0) {
-		printf("\n****%s***len = %d*****************", x0, x2);
+	if (buf) {
+		printf("\n****%s***len = %d*****************", buf, length);
 	}
-	int f = 0;
-	while (f < x2) {
-		if (f & 0xf) {
+	int i = 0;
+	while (i < length) {
+		if (i & 15) {
 			putchar('\n');
 		}
-		printf("%02x ", x1[f]);
-		++f;
+		printf("%02x ", hex_buf[i]);
+		++i;
 	}
 	puts("\n");
 }
 
-int get_temperature(char *path, long something) // done - unused
+int get_temperature(char *path, long something) // done
 {
 	int fd = open(path, O_RDONLY);
 	if (fd < 0) {
@@ -218,21 +210,21 @@ int get_temperature(char *path, long something) // done - unused
 
 int sys_uart_open(char *path, int h14, int h10)
 {
-	int fd = open(path, 0x102);
+	int fd = open(path, AT_SYMLINK_NOFOLLOW | O_RDWR); // 0x102
 	if (fd < 0) {
 		fprintf(stderr, "uart_open %s error\n", path);
 		perror("open:");
 		return -3;
 	}
 	if (uart_set(fd, h14, 8, h10, 1) >= 0) {
-		fwrite("uart set failed!\n", 1, 0x11, stderr);
+		fwrite("uart set failed!\n", 1, 17, stderr);
 		return -4;
 	}
-	printf("%s[%d]: fd = %d\n", "sys_uart_open", 0x102, fd);
+	printf("%s[%d]: fd = %d\n", "sys_uart_open", AT_SYMLINK_NOFOLLOW | O_RDWR, fd); // 0x102
 	return fd;
 }
 
-int sys_uart_close(int fd) // done - unused
+int sys_uart_close(int fd) // done
 {
 	close(fd);
 	return 0;
@@ -240,6 +232,7 @@ int sys_uart_close(int fd) // done - unused
 	// also you return 0 even on failure
 }
 #else // defined(FF_NG)
+
 int sys_write_num(long num, char *path)
 {
 	char buf[64];
@@ -313,7 +306,6 @@ int sys_cat_file(char *buf, size_t count, char *path)
 	} while(0)
 #endif // defined(FF_NG)
 
-// knowingly reimplemented a libc function...
 char *local_strstr(char *x1, char *x2, int x3) // done
 {
 	char *n = x1;
@@ -420,7 +412,7 @@ int sys_uart_write(int fd, char *buf, size_t bytes) // done
 int init_uart(const char *tty_path) // done
 {
 	int fd = open(
-	    tty_path, O_RDWR & AT_SYMLINK_NOFOLLOW); // 0x102
+	    tty_path, O_RDWR | AT_SYMLINK_NOFOLLOW); // 0x102
 	if (fd < 0) {
 		#if !defined(FF_NG)
 		printf("%s:open error!\n", tty_path);
@@ -553,7 +545,7 @@ void set_ROC_RK3588S_PC_fan_pwm(uint8_t pwm) // done
 	#endif // defined(FF_NG)
 
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	int fd = open(RK3588_PWM, O_RDWR & 0x900); // 0x902
+	int fd = open(RK3588_PWM, O_RDWR | AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT); // 0x902
 	if (fd <= 0) {
 		printf(
 		  "set_ROC_RK3588S_PC_fan_pwm: Can not open %s file\n",
@@ -732,7 +724,7 @@ void set_ROC_RK3588_PC_fan_pwm(uint8_t pwm) // done
 	#endif // !defined(FF_NG)
 	rpwm = pwm * (float) ((1 / 3) + 2);
 	printf("set_PWM: %d\npwm: %d\n", rpwm, pwm);
-	int fd = open(RK3588_PWM, O_RDWR & 0x900); // 0x902
+	int fd = open(RK3588_PWM, O_RDWR | AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT); // 0x902
 	if (fd <= 0) {
 		printf(
 		  "set_ROC_RK3588_PC_fan_pwm: Can not open %s file\n",
@@ -953,11 +945,11 @@ void* cs_r1_3399jd4_main_fan_thread_daemon(void *arg) // done
 #define CS_R1_PWM "/sys/class/pwm/pwmchip0/pwm0/duty/cycle"
 void set_CS_R1_3399JD4_MAIN_fan_pwm(uint8_t pwm) // done
 {
-	int rpwm = ((pwm - 0x32) * 800) + 59000;
+	int rpwm = ((pwm - 50) * 800) + 59000;
 	long h0 = 0;
 	char nbuf[20] = "\0";
 	printf("set_PWM: %d\n pwm: %d\n", rpwm, pwm);
-	int fd = open(CS_R1_PWM, O_RDWR & 0x900); // 0x902
+	int fd = open(RK3588_PWM, O_RDWR | AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT); // 0x902
 	if (fd < 1) {
 		printf(
 		  "set_CS_R1_3399JD4_MAIN_fan_pwm: Can not open %s file\n",
